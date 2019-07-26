@@ -24,7 +24,7 @@ def _pairwise_distances(embeddings, squared=False):
     # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
     # This also provides more numerical stability (the diagonal of the result will be exactly 0).
     # shape (batch_size,)
-    square_norm = tf.diag_part(dot_product)
+    square_norm = tf.linalg.tensor_diag_part(dot_product)
 
     # Compute the pairwise distance matrix as we have:
     # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
@@ -37,7 +37,7 @@ def _pairwise_distances(embeddings, squared=False):
     if not squared:
         # Because the gradient of sqrt is infinite when distances == 0.0 (ex: on the diagonal)
         # we need to add a small epsilon where distances == 0.0
-        mask = tf.to_float(tf.equal(distances, 0.0))
+        mask = tf.cast(tf.equal(distances, 0.0), tf.float32)
         distances = distances + mask * 1e-16
 
         distances = tf.sqrt(distances)
@@ -86,7 +86,7 @@ def _get_anchor_negative_triplet_mask(labels):
 
     return mask
 
-def original_triplet_loss(labels, embeddings, margin, squared=False):
+def original_triplet_loss(embeddings, labels, margin, squared=False):
     """Build the triplet loss over a batch of embeddings.
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
@@ -107,7 +107,7 @@ def original_triplet_loss(labels, embeddings, margin, squared=False):
     # For each anchor, get the hardest positive
     # First, we need to get a mask for every valid positive (they should have same label)
     mask_anchor_positive = _get_anchor_positive_triplet_mask(labels)
-    mask_anchor_positive = tf.to_float(mask_anchor_positive)
+    mask_anchor_positive = tf.cast(mask_anchor_positive, tf.float32)
 
     # We put to 0 any element where (a, p) is not valid (valid if a != p and label(a) == label(p))
     anchor_positive_dist = tf.multiply(mask_anchor_positive, pairwise_dist)
@@ -119,7 +119,7 @@ def original_triplet_loss(labels, embeddings, margin, squared=False):
     # For each anchor, get the hardest negative
     # First, we need to get a mask for every valid negative (they should have different labels)
     mask_anchor_negative = _get_anchor_negative_triplet_mask(labels)
-    mask_anchor_negative = tf.to_float(mask_anchor_negative)
+    mask_anchor_negative = tf.cast(mask_anchor_negative, tf.float32)
 
     # We add the maximum value in each row to the invalid negatives (label(a) == label(n))
     max_anchor_negative_dist = tf.reduce_max(pairwise_dist, axis=1, keepdims=True)
@@ -140,7 +140,7 @@ def original_triplet_loss(labels, embeddings, margin, squared=False):
 """
 Author: Im Sunghoon, https://github.com/shi510
 
-Adversarial triplet loss is a variation of original triplet loss.
+Adversarial triplet loss is a variant of original triplet loss.
 Instead of using inequality between anchor-positive and anchor-negative with margin,
     just decrease anchor-positive distance by ln(|ap| + 1)
     where the 'ap' is anchor-positive distance and
@@ -161,7 +161,7 @@ def adversarial_triplet_loss(embeddings, labels, squared=False):
     # For each anchor, get the hardest positive
     # First, we need to get a mask for every valid positive (they should have same label)
     mask_anchor_positive = _get_anchor_positive_triplet_mask(labels)
-    mask_anchor_positive = tf.to_float(mask_anchor_positive)
+    mask_anchor_positive = tf.cast(mask_anchor_positive, tf.float32)
 
     # We put to 0 any element where (a, p) is not valid (valid if a != p and label(a) == label(p))
     anchor_positive_dist = tf.multiply(mask_anchor_positive, pairwise_dist)
@@ -173,7 +173,7 @@ def adversarial_triplet_loss(embeddings, labels, squared=False):
     # For each anchor, get the hardest negative
     # First, we need to get a mask for every valid negative (they should have different labels)
     mask_anchor_negative = _get_anchor_negative_triplet_mask(labels)
-    mask_anchor_negative = tf.to_float(mask_anchor_negative)
+    mask_anchor_negative = tf.cast(mask_anchor_negative, tf.float32)
 
     # We add the maximum value in each row to the invalid negatives (label(a) == label(n))
     max_anchor_negative_dist = tf.reduce_max(pairwise_dist, axis=1, keepdims=True)
@@ -184,13 +184,13 @@ def adversarial_triplet_loss(embeddings, labels, squared=False):
     tf.summary.scalar("anchor-negative distance", tf.reduce_mean(hardest_negative_dist))
 
     # struggle to decrease anchor-positive distance
-    ap_loss = tf.log(tf.math.abs(hardest_positive_dist) + 1)
+    ap_loss = tf.math.log(tf.math.abs(hardest_positive_dist) + 1)
     tf.summary.scalar("anchor-postive loss", tf.reduce_mean(ap_loss))
     # struggle to increase anchor-negative distance
-    an_loss = -tf.log(1-tf.math.exp(-tf.math.abs(hardest_negative_dist)))
+    an_loss = -tf.math.log(1-tf.math.exp(-tf.math.abs(hardest_negative_dist)))
     tf.summary.scalar("anchor-negative loss", tf.reduce_mean(an_loss))
     # Get final mean triplet loss
     triplet_loss = tf.reduce_mean(ap_loss + an_loss)
     tf.summary.scalar("total loss", triplet_loss)
-    
+
     return triplet_loss
