@@ -86,7 +86,7 @@ def _get_anchor_negative_triplet_mask(labels):
 
     return mask
 
-def original_triplet_loss(embeddings, labels, margin, squared=False):
+def _original_triplet_loss(embeddings, labels, margin, squared=False):
     """Build the triplet loss over a batch of embeddings.
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
@@ -137,6 +137,11 @@ def original_triplet_loss(embeddings, labels, margin, squared=False):
 
     return triplet_loss
 
+def original_triplet_loss(y_true, y_pred, margin = 0.2, squared = False):
+    y_true = tf.reshape(y_true, [-1])
+    y_true = tf.cast(y_true, tf.int32)
+    return _original_triplet_loss(y_pred, y_true, margin, squared)
+
 """
 Author: Im Sunghoon, https://github.com/shi510
 
@@ -154,7 +159,7 @@ TODO:
     1. LFW evaluation to compare with original triplet loss
     2. VGGFACE2 evaluation to compare with original triplet loss
 """
-def adversarial_triplet_loss(embeddings, labels, squared=False):
+def _adversarial_triplet_loss(embeddings, labels, squared=False):
     # Get the pairwise distance matrix
     pairwise_dist = _pairwise_distances(embeddings, squared=squared)
 
@@ -194,3 +199,8 @@ def adversarial_triplet_loss(embeddings, labels, squared=False):
     tf.summary.scalar("total loss", triplet_loss)
 
     return triplet_loss
+
+def adversarial_triplet_loss(y_true, y_pred, squared = False):
+    y_true = tf.reshape(y_true, [-1])
+    y_true = tf.cast(y_true, tf.int32)
+    return _adversarial_triplet_loss(y_pred, y_true, squared)
