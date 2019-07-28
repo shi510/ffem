@@ -4,6 +4,20 @@ import random
 import math
 import cv2
 
+
+"""
+This generator is too slow to fetch data from disk.
+I tried multi-threading using queue, but not works.
+By debugging, the bottleneck location seems in _get_batch function as below:
+    for n, data in enumerate(batched):
+        img = cv2.imread(data[0])
+        x[n,] = self.process_x(img)
+        y[n] = int(data[1])
+Instead of using this generator, i use tf.data.Dataset.
+It is fast and no bottleneck.
+TODO:
+    Make DataGenerator class as fast as tf.data.Dataset.
+"""
 class DataGenerator:
     """
     x_y_pair_list : [ (data_path, label) ]
