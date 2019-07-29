@@ -2,6 +2,7 @@ import json
 import os
 import importlib
 import tensorflow as tf
+import csv
 
 def open_config_file(file_path):
     with open(file_path, 'r') as f:
@@ -19,12 +20,18 @@ def open_config_file(file_path):
 # it should be converted to absolute path.
 # for example, os.path.join('/usr/ml/faces/train', 'n0002/1.jpg')
 # the root_dir is '/usr/ml/faces/train'
-def load_image_path_and_label(root_dir, list_file):
+def load_image_path_and_label(root_dir, list_file, crop_list):
     images = []
     labels = []
+    crops = []
+    n = 0
     classes = {
         name : idx for idx, name in enumerate(os.listdir(root_dir))
     }
+    crop_file = open(crop_list, 'r')
+    crop_boxes = csv.reader(crop_file)
+    crop_boxes = list(crop_boxes)
+    crop_file.close()
 
     with open(list_file, 'r') as f:
         while(True):
@@ -37,17 +44,10 @@ def load_image_path_and_label(root_dir, list_file):
                 img = img[0:-1]
             images.append(img)
             labels.append(label)
-    return images, labels
-
-def preprocess_image(image):
-    image = tf.image.decode_jpeg(image, channels=3)
-    image = tf.image.resize(image, [192, 192])
-    image /= 255.0  # normalize to [0,1] range
-    return image
-
-def load_and_preprocess_image(img_path, label):
-    image = tf.io.read_file(img_path)
-    return preprocess_image(image), label
+            box = crop_boxes[n + 1][1:5]
+            crops.append([int(box[0]), int(box[1]), int(box[2]), int(box[3])])
+            n += 1
+    return images, labels, crops
 
 def get_model(model_type):
     as_file = model_type.rpartition('.')[0]

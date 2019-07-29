@@ -3,7 +3,68 @@ import numpy as np
 import random
 import math
 import cv2
+import os
+import example.train.utils as utils
 
+class Dataset:
+    
+    def __init__(self, root_path, list_path, crop_path):
+        self.train_images, self.train_labels, self.train_crops = \
+            utils.load_image_path_and_label(
+                root_path,
+                list_path,
+                crop_path
+            )
+        self.slice_args = (
+            self.train_images,
+            self.train_labels,
+            self.train_crops
+        )
+        self.ds = tf.data.Dataset.from_tensor_slices(self.slice_args)
+        self.num_samples = len(self.train_images)
+
+    def __iter__(self):
+        self.iter_ds = iter(self.ds)
+        return iter(self.ds)
+
+    def __next__(self):
+        return next(self.iter_ds)
+
+    def batch(self, batch_size):
+        self.ds = self.ds.batch(batch_size)
+        self.ds = self.ds.repeat()
+        return self
+
+    def prefetch(self, buffer_size):
+        self.ds = self.ds.prefetch(buffer_size)
+        return self
+
+    def shuffle(self, buffer_size):
+        self.ds = self.ds.shuffle(buffer_size)
+        return self
+    
+    def resize(self, resize_shape):
+        self.resize_shape = resize_shape
+        self.ds = self.ds.map(self._load_and_preprocess_image)
+        return self
+
+    def _preprocess_image(self, image, crop):
+        # y, x, h, w
+        bbox = [crop[1], crop[0], crop[3], crop[2]]
+        image = tf.io.decode_and_crop_jpeg(image, bbox, channels=3)
+        image = tf.cast(image, tf.float32)
+        image -= 127.5
+        image /= 128 # normalize to [-1,1] range
+        image = tf.image.resize(image, self.resize_shape)
+        image = tf.image.random_flip_left_right(image)
+        return image
+
+    def _load_and_preprocess_image(self, img_path, label, crop):
+        image = tf.io.read_file(img_path)
+        return self._preprocess_image(image, crop), label
+
+    def __len__(self):
+        return self.num_samples
 
 """
 This generator is too slow to fetch data from disk.

@@ -3,6 +3,7 @@ import math
 import os
 import tensorflow as tf
 import example.train.utils as utils
+import example.train.input_pipeline as input_pipeline
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_file')
@@ -11,37 +12,36 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args = utils.open_config_file(args.config_file)
 
-    model = utils.get_model(args["model"])
-    model = model(shape=args["shape"])
-    
-    model.compile(loss = utils.get_loss(args["loss"]),
-        optimizer = tf.keras.optimizers.Adam(lr=args["learning_rate"]),
-        metrics = ['accuracy']
-    )
+    model_fn = utils.get_model(args["model"])
+    model = model_fn(shape=args["shape"])
+    loss_fn = utils.get_loss(args["loss"])
 
-    callbacks = [
-        # tf.keras.callbacks.TensorBoard(log_dir='./graph')
-        # TrainValTensorBoard(update_freq='batch')
-    ]
-    
-    train_images, train_labels = utils.load_image_path_and_label(
+    train_ds = input_pipeline.Dataset(
         os.path.join(os.path.dirname(args["train_list"]), 'train'),
-        args["train_list"]
-    )
-    # test_images, test_labels = load_image_path_and_label(
-    #     os.path.join(os.path.dirname(args["test_list"]), 'test'),
-    #     args["test_list"]
-    # )
-    shape = [args["batch_size"]] + args["shape"]
-    num_iter = int(math.floor(len(train_images) / args["batch_size"]))
-    ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
-    ds = ds.map(utils.load_and_preprocess_image)
-    # ds = ds.shuffle(buffer_size=4096)
-    ds = ds.repeat()
-    ds = ds.batch(int(args["batch_size"]))
-    ds = ds.prefetch(buffer_size=5000)
-    model.fit(
-        ds,
-        epochs = args["epoch"],
-        steps_per_epoch = num_iter
-    )
+        args["train_list"],
+        args['train_crop_list']
+    ).resize(args["shape"][0:2]).shuffle(1000).batch(args["batch_size"]).prefetch(5000)
+
+    test_ds = input_pipeline.Dataset(
+        os.path.join(os.path.dirname(args["test_list"]), 'test'),
+        args["test_list"],
+        args['test_crop_list']
+    ).resize(args["shape"][0:2]).shuffle(1000).batch(args["batch_size"]).prefetch(5000)
+
+    writer = tf.summary.create_file_writer('logs')
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+
+    # Iterate over epochs.
+    for epoch in range(args["epoch"]):
+        print('Start of epoch %d' % (epoch,))
+        # Iterate over the batches of the dataset.
+        for step, (x, y) in enumerate(train_ds):
+            with tf.GradientTape() as tape:
+                features = model(x)
+                total_loss = loss_fn(features, y)
+            grads = tape.gradient(total_loss, model.trainable_weights)
+            optimizer.apply_gradients(zip(grads, model.trainable_weights))
+            with writer.as_default():
+                tf.summary.scalar('total_loss', total_loss, step)
+            if step % 100 == 0:
+                print('step %s: mean loss = %s' % (step, total_loss.numpy()))

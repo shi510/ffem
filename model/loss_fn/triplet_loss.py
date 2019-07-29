@@ -86,7 +86,7 @@ def _get_anchor_negative_triplet_mask(labels):
 
     return mask
 
-def _original_triplet_loss(embeddings, labels, margin, squared=False):
+def original_triplet_loss(embeddings, labels, margin=0.2, squared=False):
     """Build the triplet loss over a batch of embeddings.
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
@@ -114,7 +114,6 @@ def _original_triplet_loss(embeddings, labels, margin, squared=False):
 
     # shape (batch_size, 1)
     hardest_positive_dist = tf.reduce_max(anchor_positive_dist, axis=1, keepdims=True)
-    tf.summary.scalar("hardest_positive_dist", tf.reduce_mean(hardest_positive_dist))
 
     # For each anchor, get the hardest negative
     # First, we need to get a mask for every valid negative (they should have different labels)
@@ -127,7 +126,6 @@ def _original_triplet_loss(embeddings, labels, margin, squared=False):
 
     # shape (batch_size,)
     hardest_negative_dist = tf.reduce_min(anchor_negative_dist, axis=1, keepdims=True)
-    tf.summary.scalar("hardest_negative_dist", tf.reduce_mean(hardest_negative_dist))
 
     # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss
     triplet_loss = tf.maximum(hardest_positive_dist - hardest_negative_dist + margin, 0.0)
@@ -136,11 +134,6 @@ def _original_triplet_loss(embeddings, labels, margin, squared=False):
     triplet_loss = tf.reduce_mean(triplet_loss)
 
     return triplet_loss
-
-def original_triplet_loss(y_true, y_pred, margin = 0.2, squared = False):
-    y_true = tf.reshape(y_true, [-1])
-    y_true = tf.cast(y_true, tf.int32)
-    return _original_triplet_loss(y_pred, y_true, margin, squared)
 
 """
 Author: Im Sunghoon, https://github.com/shi510
@@ -159,7 +152,7 @@ TODO:
     1. LFW evaluation to compare with original triplet loss
     2. VGGFACE2 evaluation to compare with original triplet loss
 """
-def _adversarial_triplet_loss(embeddings, labels, squared=False):
+def adversarial_triplet_loss(embeddings, labels, squared=False):
     # Get the pairwise distance matrix
     pairwise_dist = _pairwise_distances(embeddings, squared=squared)
 
@@ -173,7 +166,6 @@ def _adversarial_triplet_loss(embeddings, labels, squared=False):
 
     # shape (batch_size, 1)
     hardest_positive_dist = tf.reduce_max(anchor_positive_dist, axis=1, keepdims=True)
-    tf.summary.scalar("anchor-positive distance", tf.reduce_mean(hardest_positive_dist))
 
     # For each anchor, get the hardest negative
     # First, we need to get a mask for every valid negative (they should have different labels)
@@ -186,21 +178,12 @@ def _adversarial_triplet_loss(embeddings, labels, squared=False):
 
     # shape (batch_size,)
     hardest_negative_dist = tf.reduce_min(anchor_negative_dist, axis=1, keepdims=True)
-    tf.summary.scalar("anchor-negative distance", tf.reduce_mean(hardest_negative_dist))
 
     # struggle to decrease anchor-positive distance
-    ap_loss = tf.math.log(tf.math.abs(hardest_positive_dist) + 1)
-    tf.summary.scalar("anchor-postive loss", tf.reduce_mean(ap_loss))
+    ap_loss = tf.math.log(tf.math.abs(hardest_positive_dist) + 1, name='ap_loss')
     # struggle to increase anchor-negative distance
-    an_loss = -tf.math.log(1-tf.math.exp(-tf.math.abs(hardest_negative_dist)))
-    tf.summary.scalar("anchor-negative loss", tf.reduce_mean(an_loss))
+    an_loss = -tf.math.log(1-tf.math.exp(-tf.math.abs(hardest_negative_dist)), name='an_loss')
     # Get final mean triplet loss
     triplet_loss = tf.reduce_mean(ap_loss + an_loss)
-    tf.summary.scalar("total loss", triplet_loss)
-
-    return triplet_loss
-
-def adversarial_triplet_loss(y_true, y_pred, squared = False):
-    y_true = tf.reshape(y_true, [-1])
-    y_true = tf.cast(y_true, tf.int32)
-    return _adversarial_triplet_loss(y_pred, y_true, squared)
+    
+    return triplet_loss, tf.reduce_mean(ap_loss), tf.reduce_mean(an_loss)
