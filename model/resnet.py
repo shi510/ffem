@@ -26,7 +26,7 @@ def _res_block1(input):
     return x
 
 def _res_block2(input):
-    shortcut = _res_downsample(128)(input)
+    shortcut = _res_downsample(128, 1, 2)(input)
     x = _conv_bn_act(input, 128, 3, 2, 'same', layers.ReLU())
     x = _conv_bn_act(x, 128, 3, 1, 'same', layers.ReLU())
     x = layers.Add()([x, shortcut])
@@ -38,7 +38,7 @@ def _res_block2(input):
     return x
 
 def _res_block3(input):
-    shortcut = _res_downsample(256)(input)
+    shortcut = _res_downsample(256, 1, 2)(input)
     x = _conv_bn_act(input, 256, 3, 2, 'same', layers.ReLU())
     x = _conv_bn_act(x, 256, 3, 1, 'same', layers.ReLU())
     x = layers.Add()([x, shortcut])
@@ -49,8 +49,8 @@ def _res_block3(input):
         x = layers.Add()([x, shortcut])
     return x
 
-def _res_downsample(filter):
-    return layers.Conv2D(filter, 1, 2, 'valid', use_bias=False)
+def _res_downsample(filter, ksize, scale):
+    return layers.Conv2D(filter, ksize, scale, 'valid', use_bias=False)
 
 def _conv_bn_act(input, filter, ksize, stride, padding, act):
     x = layers.Conv2D(
