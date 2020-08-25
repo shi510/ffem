@@ -1,170 +1,65 @@
 import tensorflow as tf
 import numpy as np
-import random
-import math
-import cv2
-import os
 import example.train.utils as utils
+import imgaug as ia
+import imgaug.augmenters as iaa
 
-class Dataset:
-    
-    def __init__(self, root_path, list_path, crop_path):
-        self.train_images, self.train_labels, self.train_crops = \
-            utils.load_image_path_and_label(
-                root_path,
-                list_path,
-                crop_path
+def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, onehot=False):
+    img_pathes, img_labels = utils.read_RFW_train_list(root_path, race_list, num_id)
+    ds = tf.data.Dataset.from_tensor_slices((img_pathes, img_labels))
+    ds = ds.shuffle(len(img_pathes))
+    sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+    seq = iaa.Sequential(
+        [
+            # apply the following augmenters to most images
+            iaa.Fliplr(0.5), # horizontally flip 50% of all images
+            # execute 0 to 5 of the following (less important) augmenters per image
+            # don't execute all of them, as that would often be way too strong
+            iaa.SomeOf((0, 5),
+                [
+                    iaa.Grayscale(alpha=(0.0, 1.0)),
+                    iaa.OneOf([
+                        iaa.GaussianBlur((0, 3.0)), # blur images with a sigma between 0 and 3.0
+                        iaa.AverageBlur(k=(2, 7)), # blur image using local means with kernel sizes between 2 and 7
+                        iaa.MedianBlur(k=(3, 11)), # blur image using local medians with kernel sizes between 2 and 7
+                    ]),
+            #         # search either for all edges or for directed edges,
+            #         # blend the result with the original image using a blobby mask
+                    iaa.SimplexNoiseAlpha(iaa.OneOf([
+                        iaa.EdgeDetect(alpha=(0.5, 1.0)),
+                        iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
+                    ])),
+                    iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
+                    iaa.OneOf([
+                        iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
+                        iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
+                    ])
+                ],
+                random_order=True
             )
-        self.slice_args = (
-            self.train_images,
-            self.train_labels,
-            self.train_crops
-        )
-        self.ds = tf.data.Dataset.from_tensor_slices(self.slice_args)
-        self.num_samples = len(self.train_images)
-
-    def __iter__(self):
-        self.iter_ds = iter(self.ds)
-        return iter(self.ds)
-
-    def __next__(self):
-        return next(self.iter_ds)
-
-    def batch(self, batch_size):
-        self.ds = self.ds.batch(batch_size)
-        self.ds = self.ds.repeat()
-        return self
-
-    def prefetch(self, buffer_size):
-        self.ds = self.ds.prefetch(buffer_size)
-        return self
-
-    def shuffle(self, buffer_size):
-        self.ds = self.ds.shuffle(buffer_size)
-        return self
-    
-    def resize(self, resize_shape):
-        self.resize_shape = resize_shape
-        self.ds = self.ds.map(self._load_and_preprocess_image)
-        return self
-
-    def _preprocess_image(self, image, crop):
-        # y, x, h, w
-        bbox = [crop[1], crop[0], crop[3], crop[2]]
-        image = tf.io.decode_and_crop_jpeg(image, bbox, channels=3)
+        ]
+        # random_order=True
+    )
+    def _preprocess_image(image):
+        image = tf.io.decode_jpeg(image, channels=3)
+        image = tf.image.resize(image, img_shape)
+        image = tf.cast(image, tf.uint8)
+        [image, ] = tf.numpy_function(lambda img : seq(image=img), [image], [tf.uint8])
         image = tf.cast(image, tf.float32)
         image -= 127.5
         image /= 128 # normalize to [-1,1] range
-        image = tf.image.resize(image, self.resize_shape)
-        image = tf.image.random_flip_left_right(image)
         return image
 
-    def _load_and_preprocess_image(self, img_path, label, crop):
+    def _load_and_preprocess_image(img_path, label):
+        img_path = root_path+'/'+img_path
         image = tf.io.read_file(img_path)
-        return self._preprocess_image(image, crop), label
+        return _preprocess_image(image), label
+    ds = ds.map(_load_and_preprocess_image)
+    num_class = None
+    if onehot:
+        num_class = len(race_list) * num_id
+        ds = ds.map(lambda img, label : (img, tf.one_hot(label, num_class)))
+    ds = ds.batch(batch_size)
+    ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+    return ds, num_class
 
-    def __len__(self):
-        return self.num_samples
-
-"""
-This generator is too slow to fetch data from disk.
-I tried multi-threading using queue, but not works.
-By debugging, the bottleneck location seems in _get_batch function as below:
-    for n, data in enumerate(batched):
-        img = cv2.imread(data[0])
-        x[n,] = self.process_x(img)
-        y[n] = int(data[1])
-Instead of using this generator, i use tf.data.Dataset.
-It is fast and no bottleneck.
-TODO:
-    Make DataGenerator class as fast as tf.data.Dataset.
-"""
-class DataGenerator:
-    """
-    x_y_pair_list : [ (data_path, label) ]
-    shape : 4-dims, including batch size
-    process_x : preprocessing function for x (data)
-    process_y : preprocessing function for y (label)
-    """
-    def __init__(self, x_y_pair_list, shape, process_x = None, process_y = None):
-        self.data_list = x_y_pair_list
-        self.process_x = process_x
-        self.process_y = process_y
-        self.shape = shape
-        self.n = -1
-        self.total_n = int(math.floor(len(self.data_list) / self.shape[0]))
-    
-    """
-    it returns (batched int-typed image, batched int-typed label)
-    """
-    def get_next(self):
-        while(True):
-            self.n = self.n + 1
-            if self.n == self.total_n:
-                self.n = 0
-                random.shuffle(self.data_list)
-            yield self._get_batch(self.n)
-
-
-    def _get_batch(self, batch_id):
-        batched = self._slice_batch(batch_id)
-        x = np.empty(self.shape)
-        y = np.empty((self.shape[0]), dtype=int)
-        for n, data in enumerate(batched):
-            img = cv2.imread(data[0])
-            x[n,] = self.process_x(img)
-            y[n] = int(data[1])
-        return x, y
-
-    def _slice_batch(self, batch_id):
-        batched = self.data_list[
-            batch_id * self.shape[0] :
-            (batch_id + 1) * self.shape[0]
-        ]
-        return batched
-
-"""
-Auhor: Im Sunghoon, https://github.com/shi510
-
-It does not work.
-Am i something mistake?
-
-As like calling function below, 
-keras.Model.fit_generator(
-    generator = DataGeneratorExperiment(args...),
-    ...
-)
-It reads batch item from the disk, 
-    until it reaches to __len__().
-"""
-class DataGeneratorExperiment(tf.keras.utils.Sequence):
-
-    def __init__(self, x_y_pair_list, shape, process_x = None, process_y = None):
-        self.data_list = x_y_pair_list
-        self.process_x = process_x
-        self.process_y = process_y
-        self.shape = shape
-
-    def __len__(self):
-        return int(math.floor(len(self.data_list) / self.shape[0]))
-
-    def __getitem__(self, batch_id):
-        # print(batch_id)
-        batched = self._slice_batch(batch_id)
-        x = np.empty(self.shape)
-        y = np.empty((self.shape[0]), dtype=int)
-        for n, data in enumerate(batched):
-            img = cv2.imread(data[0])
-            x[n,] = self.process_x(img)
-            y[n] = data[1]
-        return x, y
-
-    def on_epoch_end(self):
-        random.shuffle(self.data_list)
-
-    def _slice_batch(self, batch_id):
-        batched = self.data_list[
-            batch_id * self.shape[0] :
-            (batch_id + 1) * self.shape[0]
-        ]
-        return batched

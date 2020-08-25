@@ -2,19 +2,14 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 
 # 224, 192, 160
-def ResNet18(shape):
-    input = tf.keras.Input(shape)
-    x = _conv_bn_act(input, 64, 7, 2, 'same', layers.ReLU())
-    x = layers.MaxPool2D(pool_size=3, strides=2, padding='same')(x)
-    x = _res_block1(x)
-    x = _res_block2(x)
-    x = _res_block3(x)
-    avgp = layers.GlobalAveragePooling2D()(x)
-    # maxp = layers.MaxPool2D(pool_size=x.shape[1])(x)
-    # concat = layers.Concatenate()([avgp, maxp])
-    concat = layers.Flatten()(avgp)
-    feature = layers.Dense(128)(concat)
-    return tf.keras.Model(input, feature)
+def ResNet18(shape, name='resnet-18'):
+    x = tf.keras.Input(shape)
+    y = _conv_bn_act(x, 64, 7, 2, 'same', layers.ReLU())
+    y = layers.MaxPool2D(pool_size=3, strides=2, padding='same')(y)
+    y = _res_block1(y)
+    y = _res_block2(y)
+    y = _res_block3(y)
+    return tf.keras.Model(x, y, name=name)
 
 def _res_block1(input):
     x = input
