@@ -28,7 +28,7 @@ config = {
     # The adversarial_triplet_loss does not results in zero loss.
     # But original_triplet_loss results in zero loss when it is satisfied by
     #    ||anchor-positive|| < ||anchor-nagative|| + margin.
-    'metric_loss' : 'triplet_loss.batch_all_triplet_loss',
+    'metric_loss' : 'triplet_loss.original_triplet_loss',
     'embedding_dim': 128,
     'optimizer' : 'adam',
     'epoch' : 1000,
