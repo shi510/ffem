@@ -1,4 +1,5 @@
 config = {
+    # Save trained model named with 'model_name'.h5.
     'model_name': 'face_model',
     # Which do you want to execute with Keras or Eager Mode?
     # Keras: Simple Logs
@@ -15,21 +16,22 @@ config = {
     # 1. MobileNetV2
     # 2. ResNet18
     'model' : 'MobileNetV2',
-    # the 'metric_loss' option is enabled when 'train_classifier' option is turned off.
+    # The 'metric_loss' option is enabled when the 'train_classifier' option is turned off.
     # There are two functions for this option.
     #  1. original_triplet_loss
     #  2. adversarial_triplet_loss
     # The original_triplet_loss is that it selects hard samples within mini-batch.
     # The adversarial_triplet_loss is that it is same with original_triplet_loss except for calculating loss.
-    # As name says, Two loss functions are combined.
-    # One of them try to maximize anchor-negative distance.
-    # The other try to minimize anchor-positive distance.
-    # adversarial_triplet_loss not results in zero loss.
-    # But original_triplet_loss results in zero loss when it is satisfied by ||anchor-positive|| < ||anchor-nagative|| + margin.
+    # As the name says, two loss functions are combined.
+    # One of them try to maximize an anchor-negative distance.
+    # The other try to minimize an anchor-positive distance.
+    # The adversarial_triplet_loss does not results in zero loss.
+    # But original_triplet_loss results in zero loss when it is satisfied by
+    #    ||anchor-positive|| < ||anchor-nagative|| + margin.
     'metric_loss' : 'triplet_loss.batch_all_triplet_loss',
     'embedding_dim': 128,
     'optimizer' : 'adam',
-    'epoch' : 20,
+    'epoch' : 1000,
     'learning_rate' : 1e-4,
     'learning_rate_decay' : 0.96,
     'dataset': 'RFW',

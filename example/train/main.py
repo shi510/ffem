@@ -55,6 +55,24 @@ def build_model(config, num_class):
         model = tf.keras.Model(model.input, embedding)
     return model, loss_fn
 
+def build_callbacks():
+    callback_list = []
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor='loss', factor=0.5,
+        patience=5, min_lr=1e-5)
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        filepath='./checkpoint',
+        save_weights_only=False,
+        monitor='loss',
+        mode='max',
+        save_best_only=True)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10)
+
+    callback_list.append(reduce_lr)
+    callback_list.append(checkpoint)
+    callback_list.append(early_stop)
+    return callback_list
+
 
 if __name__ == '__main__':
     config = example.train.config.config
@@ -67,7 +85,7 @@ if __name__ == '__main__':
     if config['use_keras'] and True:
         model.compile(optimizer=opt, loss=loss_fn)
         model.fit(train_ds, epochs=config['epoch'], verbose=1,
-            workers=10)
+            workers=10, callbacks=build_callbacks())
         model.save('{}.h5'.format(config['model_name']))
     else:
         # Iterate over epochs.
