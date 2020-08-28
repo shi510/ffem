@@ -17,6 +17,8 @@ def _pairwise_distances(embeddings, squared=False):
     Returns:
         pairwise_distances: tensor of shape (batch_size, batch_size)
     """
+    # L2-Normalize before calculating distance.
+    embeddings = tf.math.l2_normalize(embeddings, axis=1)
     # Get the dot product between all embeddings
     # shape (batch_size, batch_size)
     dot_product = tf.matmul(embeddings, tf.transpose(embeddings))
