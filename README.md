@@ -40,25 +40,19 @@ In this project, it uses second option.
 Pretrain first and fine-tune the pretrained model with metric losses.  
 
 ## Common Settings
-```
-1. export PYTHONPATH=$(pwd)
-2. 'train_path' and 'test_path' in configuration file.
-```
+1. export PYTHONPATH=$(pwd)  
+2. 'train_path' and 'test_path' in configuration file.  
 
 ## First Step (Classifier)
-```
-1. Choose 'batch_size' and 'num_identity' in configuration file for consideration of memory capacity.
-2. Set 'train_classifier' to `True` in configureation file.
-3. Run -> python example/train/main.py
-```
+1. Choose 'batch_size' and 'num_identity' in configuration file for consideration of memory capacity.  
+2. Set 'train_classifier' to `True` in configureation file.  
+3. Run -> python example/train/main.py  
 
 ## Last Step (Metric Learning)
-```
-1. Set 'train_classifier' to `False` in configureation file.
-2. Set 'num_identity' to `None` in configuration file, It does not affects memory usage when 'train_classifier' option is `False`.
-3. Choose 'metric_loss' option in configureation file.
-4. Run -> python example/train/main.py
-```
+1. Set 'train_classifier' to `False` in configureation file.  
+2. Set 'num_identity' to `None` in configuration file, It does not affects memory usage when 'train_classifier' option is `False`.  
+3. Choose 'metric_loss' option in configureation file.  
+4. Run -> python example/train/main.py  
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)
