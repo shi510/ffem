@@ -6,13 +6,14 @@ import example.train.utils as utils
 import example.train.input_pipeline as input_pipeline
 import example.train.config
 import model.models
+from tensorboard.plugins import projector
 
 
 def build_dataset(config):
     if config['dataset'] == "RFW":
         rfw_config = config['__{}'.format("RFW")]
         ds, num_class = input_pipeline.make_RFW_tfdataset(
-            root_path=rfw_config['root_path'],
+            root_path=rfw_config['train_path'],
             race_list=rfw_config['race_list'],
             num_id=rfw_config['num_identity'],
             batch_size=config['batch_size'],
@@ -23,20 +24,28 @@ def build_dataset(config):
         exit(1)
     return ds, num_class
 
+
 def build_model(config, num_class):
     model = None
     loss_fn = None
-    if config['train_classifier']:
-        loss_fn = tf.nn.softmax_cross_entropy_with_logits
-    else:
-        loss_fn = utils.get_loss(config['metric_loss'])
 
-    if os.path.exists('{}.h5'.format(config['model_name'])):
+    if os.path.exists(config['saved_model']):
         model = tf.keras.models.load_model(
-            '{}.h5'.format(config['model_name']),
+            config['saved_model'],
             custom_objects={
                 'softmax_cross_entropy_with_logits_v2':
-                tf.nn.softmax_cross_entropy_with_logits})
+                    tf.nn.softmax_cross_entropy_with_logits,
+                'original_triplet_loss':
+                    utils.get_loss('triplet_loss.original_triplet_loss'),
+                'adversarial_triplet_loss':
+                    utils.get_loss('triplet_loss.adversarial_triplet_loss'),
+            })
+        if not config['train_classifier']:
+            model = tf.keras.Model(model.input, model.get_layer('flatten').output)
+            model.trainable = False
+            embedding = tf.keras.layers.Dense(
+                config['embedding_dim'], use_bias=False)(model.output)
+            model = tf.keras.Model(model.input, embedding)
     else :
         model = model.models.get_model(config['model'], config['shape'])
         embedding = tf.keras.layers.GlobalAveragePooling2D()(model.output)
@@ -53,7 +62,13 @@ def build_model(config, num_class):
                 config['embedding_dim'], use_bias=False)(embedding)
 
         model = tf.keras.Model(model.input, embedding)
+
+    if config['train_classifier']:
+        loss_fn = tf.nn.softmax_cross_entropy_with_logits
+    else:
+        loss_fn = utils.get_loss(config['metric_loss'])
     return model, loss_fn
+
 
 def build_callbacks():
     callback_list = []
@@ -74,6 +89,60 @@ def build_callbacks():
     return callback_list
 
 
+def visualize_embeddings(config):
+    path = config['__RFW']['train_path']
+    race_list = config['__RFW'][race_list]
+    img_pathes, labels = utils.read_RFW_train_list(path, race_list=race_list, num_id=20)
+    model = tf.keras.models.load_model('{}.h5'.format(config['model_name']),
+        custom_objects={
+            'softmax_cross_entropy_with_logits_v2':
+                tf.nn.softmax_cross_entropy_with_logits,
+            'original_triplet_loss':
+                utils.get_loss('triplet_loss.original_triplet_loss'),
+            'adversarial_triplet_loss':
+                utils.get_loss('triplet_loss.adversarial_triplet_loss'),
+        })
+    embeddings = tf.math.l2_normalize(model.output, axis=1)
+    model = tf.keras.Model(model.input, embeddings)
+    embedding_array = np.ndarray((len(img_pathes), config['embedding_dim']))
+
+    for n, img_path in enumerate(img_pathes):
+        img_path = os.path.join(path, img_path)
+        img = tf.io.read_file(img_path)
+        img = tf.io.decode_jpeg(img, channels=3)
+        img = tf.image.resize(img, config['shape'][:2])
+        img -= 127.5
+        img /= 128 # normalize to [-1,1] range
+        img = tf.expand_dims(img, 0)
+        em = model(img)
+        embedding_array[n,] = em.numpy()
+    # Set up a logs directory, so Tensorboard knows where to look for files
+    log_dir='embedding_log'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    # Save Labels separately on a line-by-line manner.
+    with open(os.path.join(log_dir, 'metadata.tsv'), "w") as f:
+        for id in labels:
+            f.write("{}\n".format(id))
+
+    # Save the weights we want to analyse as a variable. Note that the first
+    # value represents any unknown word, which is not in the metadata, so
+    # we will remove that value.
+    embedding = tf.Variable(embedding_array, name='embedding')
+    # Create a checkpoint from embedding, the filename and key are
+    # name of the tensor.
+    checkpoint = tf.train.Checkpoint(embedding=embedding)
+    checkpoint.save(os.path.join(log_dir, "embedding.ckpt"))
+
+    # Set up config
+    config = projector.ProjectorConfig()
+    embedding = config.embeddings.add()
+    embedding.tensor_name = "embedding/.ATTRIBUTES/VARIABLE_VALUE"
+    embedding.metadata_path = 'metadata.tsv'
+    projector.visualize_embeddings(log_dir, config)
+
+
 if __name__ == '__main__':
     config = example.train.config.config
     train_ds, num_class = build_dataset(config)
@@ -82,7 +151,7 @@ if __name__ == '__main__':
 
     opt = tf.keras.optimizers.Adam(learning_rate=config['learning_rate'])
 
-    if config['use_keras'] and True:
+    if config['use_keras']:
         model.compile(optimizer=opt, loss=loss_fn)
         model.fit(train_ds, epochs=config['epoch'], verbose=1,
             workers=10, callbacks=build_callbacks())
@@ -93,6 +162,7 @@ if __name__ == '__main__':
             print('Start of epoch %d' % epoch)
             # Iterate over the batches of the dataset.
             epoch_loss = np.zeros(1, dtype=np.float32)
+            print(model.trainable_weights)
             for step, (x, y) in enumerate(train_ds):
                 with tf.GradientTape() as tape:
                     features = model(x)
@@ -105,3 +175,5 @@ if __name__ == '__main__':
                 if (step+1) % 100 == 0:
                     print('step %s: mean loss = %s' % (step, epoch_loss / step))
             model.save('{}_{}.h5'.format(config['model_name'], epoch+1))
+    print('Generating TensorBoard Projector for Embedding Vector...')
+    visualize_embeddings(config)

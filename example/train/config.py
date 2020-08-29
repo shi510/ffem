@@ -1,9 +1,9 @@
 config = {
     # Save trained model named with 'model_name'.h5.
     'model_name': 'face_model',
+    'saved_model': 'face_model.h5',
     # Which do you want to execute with Keras or Eager Mode?
-    # Keras: Simple Logs
-    # Eager: Plenty Logs
+    # Eager mode is for debugging.
     'use_keras': True,
     # You should train your model as classifier first for stable metric learning.
     # It is trained with softmax-cross-entropy-with-logits loss function.
@@ -38,14 +38,18 @@ config = {
 
     # Describe dataset configuration below.
     '__RFW':{
-        'root_path': '/your/rfw/datset/BUPT-Balancedface/images/race_per_7000',
+        'train_path': '/your/rfw/datset/BUPT-Balancedface/images/race_per_7000',
+        'test_path': '/your/rfw/datset/RFW/images/test/data',
         # Possible race list is :
         # 1. African
         # 2. Asian
         # 3. Caucasian
         # 4. Indian
-        'race_list': ['Asian', 'Caucasian'],
+        'race_list': ['African', 'Asian', 'Caucasian', 'Indian'],
+
+        # Number of faces in each race.
+        # Set the value to None if you want to include all faces in each rase set.
         # The number of all identities is 'num_identity' * number of items in 'race_list'.
-        'num_identity': 2000,
+        'num_identity': None,
     }
 }
