@@ -60,3 +60,4 @@ Pretrain first and fine-tune the pretrained model with metric losses.
 3. [RFW Face Dataset](http://www.whdeng.cn/RFW/index.html)
 4. https://github.com/davidsandberg/facenet/
 5. https://github.com/omoindrot/tensorflow-triplet-loss
+6. https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset

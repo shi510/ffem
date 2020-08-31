@@ -1,7 +1,9 @@
 config = {
     # Save trained model named with 'model_name'.h5.
     'model_name': 'face_model',
-    'saved_model': 'face_model.h5',
+    # Restore trained weights.
+    # The architecture must be same with 'model' option.
+    'saved_model': '',
     # Which do you want to execute with Keras or Eager Mode?
     # Eager mode is for debugging.
     'use_keras': True,

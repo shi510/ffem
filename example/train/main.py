@@ -26,11 +26,11 @@ def build_dataset(config):
 
 
 def build_model(config, num_class):
-    model = None
+    net = None
     loss_fn = None
 
     if os.path.exists(config['saved_model']):
-        model = tf.keras.models.load_model(
+        net = tf.keras.models.load_model(
             config['saved_model'],
             custom_objects={
                 'softmax_cross_entropy_with_logits_v2':
@@ -41,14 +41,14 @@ def build_model(config, num_class):
                     utils.get_loss('triplet_loss.adversarial_triplet_loss'),
             })
         if not config['train_classifier']:
-            model = tf.keras.Model(model.input, model.get_layer('flatten').output)
-            model.trainable = False
+            net = tf.keras.Model(net.input, net.get_layer('flatten').output)
+            net.trainable = False
             embedding = tf.keras.layers.Dense(
-                config['embedding_dim'], use_bias=False)(model.output)
-            model = tf.keras.Model(model.input, embedding)
+                config['embedding_dim'], use_bias=False)(net.output)
+            net = tf.keras.Model(net.input, embedding)
     else :
-        model = model.models.get_model(config['model'], config['shape'])
-        embedding = tf.keras.layers.GlobalAveragePooling2D()(model.output)
+        net = model.models.get_model(config['model'], config['shape'])
+        embedding = tf.keras.layers.GlobalAveragePooling2D()(net.output)
         embedding = tf.keras.layers.Flatten()(embedding)
 
         if config['train_classifier']:
@@ -61,13 +61,13 @@ def build_model(config, num_class):
             embedding = tf.keras.layers.Dense(
                 config['embedding_dim'], use_bias=False)(embedding)
 
-        model = tf.keras.Model(model.input, embedding)
+        net = tf.keras.Model(net.input, embedding)
 
     if config['train_classifier']:
         loss_fn = tf.nn.softmax_cross_entropy_with_logits
     else:
         loss_fn = utils.get_loss(config['metric_loss'])
-    return model, loss_fn
+    return net, loss_fn
 
 
 def build_callbacks():
@@ -91,8 +91,8 @@ def build_callbacks():
 
 def visualize_embeddings(config):
     path = config['__RFW']['train_path']
-    race_list = config['__RFW'][race_list]
-    img_pathes, labels = utils.read_RFW_train_list(path, race_list=race_list, num_id=20)
+    race_list = config['__RFW']['race_list']
+    img_pathes, labels, _ = utils.read_RFW_train_list(path, race_list=race_list, num_id=20)
     model = tf.keras.models.load_model('{}.h5'.format(config['model_name']),
         custom_objects={
             'softmax_cross_entropy_with_logits_v2':
@@ -102,9 +102,15 @@ def visualize_embeddings(config):
             'adversarial_triplet_loss':
                 utils.get_loss('triplet_loss.adversarial_triplet_loss'),
         })
-    embeddings = tf.math.l2_normalize(model.output, axis=1)
+    if config['train_classifier']:
+        last_out = model.get_layer('flatten').output
+        embedding_dim = last_out.shape[-1]
+    else:
+        last_out = model.output
+        embedding_dim = config['embedding_dim']
+    embeddings = tf.math.l2_normalize(last_out, axis=1)
     model = tf.keras.Model(model.input, embeddings)
-    embedding_array = np.ndarray((len(img_pathes), config['embedding_dim']))
+    embedding_array = np.ndarray((len(img_pathes), embedding_dim))
 
     for n, img_path in enumerate(img_pathes):
         img_path = os.path.join(path, img_path)
@@ -175,5 +181,6 @@ if __name__ == '__main__':
                 if (step+1) % 100 == 0:
                     print('step %s: mean loss = %s' % (step, epoch_loss / step))
             model.save('{}_{}.h5'.format(config['model_name'], epoch+1))
+
     print('Generating TensorBoard Projector for Embedding Vector...')
     visualize_embeddings(config)

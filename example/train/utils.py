@@ -102,4 +102,4 @@ def read_RFW_train_list(path, race_list=["African", "Asian", "Caucasian", "India
                         img_pathes.append(labeled[0])
                         img_labels.append(labeled[1])
                 unique_id += 1
-    return img_pathes, img_labels
+    return img_pathes, img_labels, unique_id + 1
