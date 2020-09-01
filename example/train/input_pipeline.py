@@ -11,15 +11,27 @@ def flip(x: tf.Tensor):
     x = tf.image.random_flip_left_right(x)
     return x
 
+
 def color(x: tf.Tensor):
-    x = tf.image.random_hue(x, 0.08)
-    x = tf.image.random_saturation(x, 0.6, 1.6)
-    x = tf.image.random_brightness(x, 0.05)
-    x = tf.image.random_contrast(x, 0.7, 1.3)
-    return x
+    def rgb_distort(x):
+        x = tf.image.random_hue(x, 0.08)
+        x = tf.image.random_saturation(x, 0.6, 1.6)
+        x = tf.image.random_brightness(x, 0.05)
+        x = tf.image.random_contrast(x, 0.7, 1.3)
+        return x
+
+
+    def gray(x):
+        return tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(x))
+
+
+    choice = tf.random.uniform([], 0, 1, dtype=tf.float32)
+    return tf.cond(choice < 0.5, lambda: gray(x), lambda: rgb_distort(x))
+
 
 def rotate(x: tf.Tensor):
     return tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
+
 
 def zoom(x: tf.Tensor):
     # Generate 20 crop settings, ranging from a 1% to 20% crop.
@@ -43,8 +55,10 @@ def zoom(x: tf.Tensor):
     # Only apply cropping 50% of the time
     return tf.cond(choice < 0.5, lambda: x, lambda: random_crop(x))
 
+
 def gray_scale(x: tf.Tensor):
     return tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(x))
+
 
 def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, onehot=False):
     img_pathes, img_labels, classes = utils.read_RFW_train_list(root_path, race_list, num_id)
@@ -55,11 +69,7 @@ def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, oneh
     def _preprocess_image(image):
         image = tf.io.decode_jpeg(image, channels=3)
         image = tf.image.resize(image, img_shape)
-        # image = tf.cast(image, tf.uint8)
-        # [image, ] = tf.numpy_function(lambda img : seq(image=img), [image], [tf.uint8])
-        # image = tf.cast(image, tf.float32)
-        image -= 127.5
-        image /= 128 # normalize to [-1,1] range
+        image /= 255 # normalize to [0,1] range
         return image
 
 
@@ -75,7 +85,6 @@ def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, oneh
         choice = tf.random.uniform([], 0, 1)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0, 1), label))
-    ds = ds.map(lambda x, label: (tf.cond(tf.random.uniform([], 0, 1) > 0.3, lambda: gray_scale(x), lambda: x), label), num_parallel_calls=TF_AUTOTUNE)
     num_class = None
     if onehot:
         num_class = len(race_list) * num_id

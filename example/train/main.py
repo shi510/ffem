@@ -117,8 +117,7 @@ def visualize_embeddings(config):
         img = tf.io.read_file(img_path)
         img = tf.io.decode_jpeg(img, channels=3)
         img = tf.image.resize(img, config['shape'][:2])
-        img -= 127.5
-        img /= 128 # normalize to [-1,1] range
+        img /= 255 # normalize to [0,1] range
         img = tf.expand_dims(img, 0)
         em = model(img)
         embedding_array[n,] = em.numpy()
