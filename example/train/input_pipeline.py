@@ -33,31 +33,31 @@ def rotate(x: tf.Tensor):
     return tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
 
 
-def zoom(x: tf.Tensor):
-    # Generate 20 crop settings, ranging from a 1% to 20% crop.
-    scales = list(np.arange(0.8, 1.0, 0.01))
-    boxes = np.zeros((len(scales), 4))
+def zoom(img_shape):
+    def zoom_wrap(x: tf.Tensor):
+        # Generate 20 crop settings, ranging from a 1% to 20% crop.
+        scales = list(np.arange(0.7, 1.0, 0.05))
+        boxes = np.zeros((len(scales), 4))
 
-    for i, scale in enumerate(scales):
-        x1 = y1 = 0.5 - (0.5 * scale)
-        x2 = y2 = 0.5 + (0.5 * scale)
-        boxes[i] = [x1, y1, x2, y2]
+        for i, scale in enumerate(scales):
+            x1 = y1 = 0.5 - (0.5 * scale)
+            x2 = y2 = 0.5 + (0.5 * scale)
+            boxes[i] = [x1, y1, x2, y2]
 
-    def random_crop(img):
-        # Create different crops for an image
-        crops = tf.image.crop_and_resize([img], boxes=boxes, box_ind=np.zeros(len(scales)), crop_size=(32, 32))
-        # Return a random crop
-        return crops[tf.random.uniform(shape=[], minval=0, maxval=len(scales), dtype=tf.int32)]
-
-
-    choice = tf.random.uniform(shape=[], minval=0., maxval=1., dtype=tf.float32)
-
-    # Only apply cropping 50% of the time
-    return tf.cond(choice < 0.5, lambda: x, lambda: random_crop(x))
+        def random_crop(img):
+            # Create different crops for an image
+            crops = tf.image.crop_and_resize([img], boxes=boxes, box_indices=np.zeros(len(scales)), crop_size=img_shape)
+            # Return a random crop
+            return crops[tf.random.uniform(shape=[], minval=0, maxval=len(scales), dtype=tf.int32)]
 
 
-def gray_scale(x: tf.Tensor):
-    return tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(x))
+        choice = tf.random.uniform(shape=[], minval=0., maxval=1., dtype=tf.float32)
+
+        # Only apply cropping 50% of the time
+        return tf.cond(choice < 0.1, lambda: x, lambda: random_crop(x))
+
+
+    return zoom_wrap
 
 
 def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, onehot=False):
@@ -80,7 +80,7 @@ def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, oneh
 
 
     ds = ds.map(_load_and_preprocess_image)
-    augmentations = [flip, color, rotate]
+    augmentations = [flip, color, zoom(img_shape)]
     for f in augmentations:
         choice = tf.random.uniform([], 0, 1)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label), num_parallel_calls=TF_AUTOTUNE)
