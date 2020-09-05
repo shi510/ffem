@@ -61,3 +61,6 @@ Pretrain first and fine-tune the pretrained model with metric losses.
 4. https://github.com/davidsandberg/facenet/
 5. https://github.com/omoindrot/tensorflow-triplet-loss
 6. https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset
+7. https://github.com/peteryuX/arcface-tf2
+8. [Sharing problems I encountered training Arcface models](https://www.kaggle.com/c/recursion-cellular-image-classification/discussion/109987)
+9. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
