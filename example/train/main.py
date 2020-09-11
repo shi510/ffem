@@ -79,8 +79,8 @@ def build_callbacks():
         filepath='./checkpoint',
         save_weights_only=False,
         monitor='loss',
-        mode='max',
-        save_best_only=True)
+        mode='auto',
+        save_best_only=False)
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10)
 
     callback_list.append(reduce_lr)
@@ -148,13 +148,36 @@ def visualize_embeddings(config):
     projector.visualize_embeddings(log_dir, config)
 
 
+def build_optimizer(config):
+    lr = config['learning_rate']
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        lr,
+        decay_steps=10000,
+        decay_rate=0.96,
+        staircase=True)
+
+    opt_list = {
+        'adam': 
+            tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+        'sgd':
+            tf.keras.optimizers.SGD(learning_rate=lr_schedule,
+                momentum=0.9, nesterov=True)
+    }
+    if config['optimizer'] not in opt_list:
+        print(config['optimizer'], 'is not support.')
+        print('please select one of below.')
+        print(opt_list.keys())
+        exit(1)
+    return opt_list[config['optimizer']]
+
+
 if __name__ == '__main__':
     config = example.train.config.config
     train_ds, num_class = build_dataset(config)
     model, loss_fn = build_model(config, num_class)
+    opt = build_optimizer(config)
     model.summary()
 
-    opt = tf.keras.optimizers.Adam(learning_rate=config['learning_rate'])
 
     if config['use_keras']:
         model.compile(optimizer=opt, loss=loss_fn)
@@ -167,7 +190,6 @@ if __name__ == '__main__':
             print('Start of epoch %d' % epoch)
             # Iterate over the batches of the dataset.
             epoch_loss = np.zeros(1, dtype=np.float32)
-            print(model.trainable_weights)
             for step, (x, y) in enumerate(train_ds):
                 with tf.GradientTape() as tape:
                     features = model(x)
