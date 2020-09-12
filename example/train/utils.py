@@ -4,8 +4,8 @@ import importlib
 import tensorflow as tf
 import csv
 import base64
-import cv2
 import struct
+import json
 
 def open_config_file(file_path):
     with open(file_path, 'r') as f:
@@ -86,20 +86,61 @@ def read_RFW_train_list(path, race_list=["African", "Asian", "Caucasian", "India
     """
     img_pathes = []
     img_labels = []
-    unique_id = 0
+    unique_id = -1
     for race in race_list:
         race_path = os.path.join(path, race)
         num_id_list = os.listdir(race_path)
         if num_id is not None and len(num_id_list) > num_id:
             num_id_list = num_id_list[:num_id]
+
         for person_id in num_id_list:
             person_id_abs = os.path.join(race_path, person_id)
             if os.path.isdir(person_id_abs):
                 file_names = os.listdir(person_id_abs)
+                unique_id += 1
                 for item in file_names:
                     if item[-3:] == "jpg":
                         labeled = (os.path.join(race, person_id, item), unique_id)
                         img_pathes.append(labeled[0])
                         img_labels.append(labeled[1])
-                unique_id += 1
+                
     return img_pathes, img_labels, unique_id + 1
+
+def read_dataset_from_json(list_file):
+    """
+    Input:
+        list_file: it should be saved with the format (json) as below.  
+        {
+        "Asian/m.0hn95h9/000012_00@en.jpg": {
+            "label": 0,
+            "x1": 9,
+            "y1": 13,
+            "x2": 75,
+            "y2": 100
+        },
+        "Asian/m.0hn95h9/000046_00@ja.jpg": {
+            "label": 0,
+            "x1": 7,
+            "y1": 7,
+            "x2": 43,
+            "y2": 65
+        },
+        ...
+        }
+
+    Return pathes, labels, boxes
+    """
+    pathes = []
+    labels = []
+    boxes = []
+    with open(list_file, 'r') as f:
+        dataset = json.loads(f.read())
+    for file_name in dataset:
+        content = dataset[file_name]
+        pathes.append(file_name)
+        labels.append(content['label'])
+        box = [float(content['y1']), float(content['x1']),
+            float(content['y2']), float(content['x2'])]
+        boxes.append(box)
+
+    return pathes, labels, boxes
