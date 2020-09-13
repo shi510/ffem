@@ -1,34 +1,9 @@
 # FFEM  
 FFEM stands for Face Feature Embedding Module.  
-It supports triplet-loss and its variants.  
-It also supports RFW dataset.  
-It is tested on tensorflow-v2.3.0.  
-
-## Prepare RFW Dataset
-You have RFW dataset folder structure as below.  
-```
-RFW
-  |-- BUPT-Balancedface
-  |         |-- images/race_per_7000
-  |         |         |-- African
-  |         |         |-- Asian
-  |         |         |-- Caucasian
-  |         |         |-- Indian
-  |-- RFW
-  |         |-- images/test/data
-  |         |         |-- African
-  |         |         |-- Asian
-  |         |         |-- Caucasian
-  |         |         |-- Indian
-  |         |-- images/test/txts
-  |         |         |-- African
-  |         |         |-- Asian
-  |         |         |-- Caucasian
-  |         |         |-- Indian
-```
+This project is tested on tensorflow-v2.3.0.  
 
 ## Things You Should Know Before Training Your Model
-It is difficult to train an embedding model with triplet loss from scratch.  
+It is difficult to train an embedding model with a triplet loss from scratch.  
 It often fails to converge and results in f(x)=0, where f(x) is an embedding vector.  
 To remedy this, there are a few options.  
 ```
@@ -36,23 +11,50 @@ To remedy this, there are a few options.
 2. Pretrain an embedding model as a classifier with softmax-cross-entropy loss.
 3. Try to train with other metric losses.
 ```
-In this project, it uses second option.  
+This project uses second option.  
 Pretrain first and fine-tune the pretrained model with metric losses.  
 
+## How to Make Your Dataset
+You have image_list.json file with the format (json) as below.  
+```
+{
+  "Asian/m.0hn95h9/000012_00@en.jpg": {
+    "label": 0,
+    "x1": 9,
+    "y1": 13,
+    "x2": 75,
+    "y2": 100
+  },
+  "Asian/m.0hn95h9/000046_00@ja.jpg": {
+    "label": 0,
+    "x1": 7,
+    "y1": 7,
+    "x2": 43,
+    "y2": 65
+  },
+  ...
+}
+```
+The `key` is a relative path of an each face image or just an image name.  
+The `value` of the key contains label number and bounding box that indicates exact face location.  
+The bounding box [x1, y1, x2, y2] is [left, top, right, bottom] respectively.  
+We generated the bounding box using [[10]](https://github.com/blaueck/tf-mtcnn).  
+
 ## Common Settings
-1. export PYTHONPATH=$(pwd)  
-2. 'train_path' and 'test_path' in configuration file.  
+Execute the command `export PYTHONPATH=$(pwd)` first.  
+Set 'img_root_path' option to know where the images are located.  
+Set 'train_file' option saved with the format as mentioned above.  
+Set 'num_identity' option that is the number of face identities in the 'train_file'.  
 
 ## First Step (Classifier)
-1. Choose 'batch_size' and 'num_identity' in configuration file for consideration of memory capacity.  
-2. Set 'train_classifier' to `True` in configureation file.  
+1. Choose 'batch_size' for consideration of memory capacity.  
+2. Set 'train_classifier' to `True`.  
 3. Run -> python example/train/main.py  
 
 ## Last Step (Metric Learning)
-1. Set 'train_classifier' to `False` in configureation file.  
-2. Set 'num_identity' to `None` in configuration file, It does not affects memory usage when 'train_classifier' option is `False`.  
-3. Choose 'metric_loss' option in configureation file.  
-4. Run -> python example/train/main.py  
+1. Set 'train_classifier' to `False`.  
+2. Choose 'metric_loss' option.  
+3. Run -> python example/train/main.py  
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)
@@ -64,3 +66,4 @@ Pretrain first and fine-tune the pretrained model with metric losses.
 7. https://github.com/peteryuX/arcface-tf2
 8. [Sharing problems I encountered training Arcface models](https://www.kaggle.com/c/recursion-cellular-image-classification/discussion/109987)
 9. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
+10. https://github.com/blaueck/tf-mtcnn

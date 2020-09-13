@@ -1,28 +1,41 @@
 import math
 import os
-import tensorflow as tf
-import numpy as np
+
 import example.train.utils as utils
 import example.train.input_pipeline as input_pipeline
 import example.train.config
 import model.models
+import model.logit_fn.margin_logit as margin_logit
+
+import tensorflow as tf
+import numpy as np
 from tensorboard.plugins import projector
 
 
+def softmax_xent_loss_wrap(y_true, y_pred):
+    loss = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
+    return tf.reduce_mean(loss)
+
+
+keras_model_custom_obj = {
+    'softmax_xent_loss_wrap':
+        softmax_xent_loss_wrap,
+    'original_triplet_loss':
+        utils.get_loss('triplet_loss.original_triplet_loss'),
+    'adversarial_triplet_loss':
+        utils.get_loss('triplet_loss.adversarial_triplet_loss'),
+}
+
+
 def build_dataset(config):
-    if config['dataset'] == "RFW":
-        rfw_config = config['__{}'.format("RFW")]
-        ds, num_class = input_pipeline.make_RFW_tfdataset(
-            root_path=rfw_config['train_path'],
-            race_list=rfw_config['race_list'],
-            num_id=rfw_config['num_identity'],
-            batch_size=config['batch_size'],
-            img_shape=config['shape'][:2],
-            onehot=config['train_classifier'])
-    else:
-        print('{} is wrong dataset.'.format(config['dataset']))
-        exit(1)
-    return ds, num_class
+    ds = input_pipeline.make_RFW_tfdataset_v2(
+        config['train_file'],
+        config['img_root_path'],
+        config['num_identity'],
+        config['batch_size'],
+        config['shape'][:2],
+        config['train_classifier'])
+    return ds, config['num_identity']
 
 
 def build_model(config, num_class):
@@ -32,39 +45,53 @@ def build_model(config, num_class):
     if os.path.exists(config['saved_model']):
         net = tf.keras.models.load_model(
             config['saved_model'],
-            custom_objects={
-                'softmax_cross_entropy_with_logits_v2':
-                    tf.nn.softmax_cross_entropy_with_logits,
-                'original_triplet_loss':
-                    utils.get_loss('triplet_loss.original_triplet_loss'),
-                'adversarial_triplet_loss':
-                    utils.get_loss('triplet_loss.adversarial_triplet_loss'),
-            })
+            custom_objects=keras_model_custom_obj)
+        net.load_weights(config['saved_model']+'/variables/variables')
+        net.trainable = True
+        print('Loading saved weights, Done.')
         if not config['train_classifier']:
-            net = tf.keras.Model(net.input, net.get_layer('flatten').output)
+            net = tf.keras.Model(net.input, net.get_layer('batch_normalization').output)
             net.trainable = False
-            embedding = tf.keras.layers.Dense(
-                config['embedding_dim'], use_bias=False)(net.output)
+            net.get_layer('dense').trainable = True
+            net.get_layer('batch_normalization').trainable = True
+            # net = tf.keras.Model(net.input, net.get_layer('flatten').output)
+            # net.trainable = False
+            # embedding = tf.keras.layers.Dense(
+            #     config['embedding_dim'], use_bias=False)(net.output)
+            # net = tf.keras.Model(net.input, embedding)
+        elif net.output.shape[-1] != num_class:
+            label = net.input[1]
+            embedding = net.get_layer('batch_normalization').output
+            embedding = margin_logit.ArcMarginPenaltyLogists(num_class, logist_scale=15)(embedding, label)
             net = tf.keras.Model(net.input, embedding)
+
     else :
         net = model.models.get_model(config['model'], config['shape'])
-        embedding = tf.keras.layers.GlobalAveragePooling2D()(net.output)
+        embedding = tf.keras.layers.Dropout(rate=0.5)(net.output)
+        embedding = tf.keras.layers.GlobalAveragePooling2D()(embedding)
         embedding = tf.keras.layers.Flatten()(embedding)
+        # embedding = tf.keras.layers.Dropout(rate=0.5)(net.output)
+        # embedding = tf.keras.layers.Flatten()(embedding)
 
         if config['train_classifier']:
             if num_class is None:
                 print('num_class == None')
                 exit(1)
-            embedding = tf.keras.layers.Dense(
-                num_class, use_bias=False, name='embedding')(embedding)
+            label = tf.keras.Input([])
+            embedding = tf.keras.layers.Dense(config['embedding_dim'],
+                kernel_regularizer=tf.keras.regularizers.l2(5e-4))(embedding)
+            embedding = tf.keras.layers.BatchNormalization()(embedding)
+            embedding = margin_logit.ArcMarginPenaltyLogists(num_class, logist_scale=15)(embedding, label)
+            net = tf.keras.Model([net.input, label], embedding)
+            # embedding = tf.keras.layers.Dense(
+            #     num_class, name='embedding')(embedding)
         else:
             embedding = tf.keras.layers.Dense(
                 config['embedding_dim'], use_bias=False)(embedding)
-
-        net = tf.keras.Model(net.input, embedding)
+            net = tf.keras.Model(net.input, embedding)
 
     if config['train_classifier']:
-        loss_fn = tf.nn.softmax_cross_entropy_with_logits
+        loss_fn = softmax_xent_loss_wrap
     else:
         loss_fn = utils.get_loss(config['metric_loss'])
     return net, loss_fn
@@ -73,8 +100,8 @@ def build_model(config, num_class):
 def build_callbacks():
     callback_list = []
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='loss', factor=0.5,
-        patience=5, min_lr=1e-5)
+        monitor='loss', factor=0.1,
+        patience=5, min_lr=1e-4)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
         filepath='./checkpoint',
         save_weights_only=False,
@@ -89,31 +116,27 @@ def build_callbacks():
     return callback_list
 
 
-def visualize_embeddings(config):
-    path = config['__RFW']['train_path']
-    race_list = config['__RFW']['race_list']
-    img_pathes, labels, _ = utils.read_RFW_train_list(path, race_list=race_list, num_id=20)
-    model = tf.keras.models.load_model('{}.h5'.format(config['model_name']),
-        custom_objects={
-            'softmax_cross_entropy_with_logits_v2':
-                tf.nn.softmax_cross_entropy_with_logits,
-            'original_triplet_loss':
-                utils.get_loss('triplet_loss.original_triplet_loss'),
-            'adversarial_triplet_loss':
-                utils.get_loss('triplet_loss.adversarial_triplet_loss'),
-        })
+def visualize_embeddings(config, identities=50):
+    pathes, labels, boxes = utils.read_dataset_from_json(config['train_file'])
+    indexed_data = []
+    for n, (path, label) in enumerate(zip(pathes, labels)):
+        if label >= identities:
+            break
+        indexed_data.append({'path': path, 'label': label})
+    model = tf.keras.models.load_model('./checkpoint',
+        custom_objects=keras_model_custom_obj)
     if config['train_classifier']:
-        last_out = model.get_layer('flatten').output
+        last_out = model.get_layer('dense').output
         embedding_dim = last_out.shape[-1]
     else:
         last_out = model.output
         embedding_dim = config['embedding_dim']
     embeddings = tf.math.l2_normalize(last_out, axis=1)
     model = tf.keras.Model(model.input, embeddings)
-    embedding_array = np.ndarray((len(img_pathes), embedding_dim))
+    embedding_array = np.ndarray((len(indexed_data), embedding_dim))
 
-    for n, img_path in enumerate(img_pathes):
-        img_path = os.path.join(path, img_path)
+    for n, img_path in enumerate(indexed_data):
+        img_path = os.path.join(config['img_root_path'], img_path['path'])
         img = tf.io.read_file(img_path)
         img = tf.io.decode_jpeg(img, channels=3)
         img = tf.image.resize(img, config['shape'][:2])
@@ -128,8 +151,8 @@ def visualize_embeddings(config):
 
     # Save Labels separately on a line-by-line manner.
     with open(os.path.join(log_dir, 'metadata.tsv'), "w") as f:
-        for id in labels:
-            f.write("{}\n".format(id))
+        for data in indexed_data:
+            f.write("{}\n".format(data['label']))
 
     # Save the weights we want to analyse as a variable. Note that the first
     # value represents any unknown word, which is not in the metadata, so
@@ -149,11 +172,10 @@ def visualize_embeddings(config):
 
 
 def build_optimizer(config):
-    lr = config['learning_rate']
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        lr,
-        decay_steps=10000,
-        decay_rate=0.96,
+        config['lr'],
+        decay_steps=config['lr_decay_steps'],
+        decay_rate=config['lr_decay_rate'],
         staircase=True)
 
     opt_list = {
@@ -177,7 +199,6 @@ if __name__ == '__main__':
     model, loss_fn = build_model(config, num_class)
     opt = build_optimizer(config)
     model.summary()
-
 
     if config['use_keras']:
         model.compile(optimizer=opt, loss=loss_fn)
