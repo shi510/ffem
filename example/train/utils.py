@@ -77,35 +77,6 @@ def read_ms_1m_celeb(file_path):
                 f.write(data)
 
 
-def read_RFW_train_list(path, race_list=["African", "Asian", "Caucasian", "Indian"], num_id=None):
-    """
-    The path is /your_root_path/BUPT-Balancedface/images/race_per_7000.
-    It should contain thease folders below:
-        African, Asian, Caucasian, Indian
-    Returns a list that contains absolute path of all face images.
-    """
-    img_pathes = []
-    img_labels = []
-    unique_id = -1
-    for race in race_list:
-        race_path = os.path.join(path, race)
-        num_id_list = os.listdir(race_path)
-        if num_id is not None and len(num_id_list) > num_id:
-            num_id_list = num_id_list[:num_id]
-
-        for person_id in num_id_list:
-            person_id_abs = os.path.join(race_path, person_id)
-            if os.path.isdir(person_id_abs):
-                file_names = os.listdir(person_id_abs)
-                unique_id += 1
-                for item in file_names:
-                    if item[-3:] == "jpg":
-                        labeled = (os.path.join(race, person_id, item), unique_id)
-                        img_pathes.append(labeled[0])
-                        img_labels.append(labeled[1])
-                
-    return img_pathes, img_labels, unique_id + 1
-
 def read_dataset_from_json(list_file):
     """
     Input:

@@ -74,7 +74,7 @@ config = {
     #
     # It should be absolute path that indicates face image file location in 'train_file' contents.
     #
-    'img_root_path': '/your/rfw/datset/BUPT-Balancedface/images/race_per_7000',
+    'img_root_path': '/your/face/image/root_path',
 
     #
     # See README.md file how to save this file.

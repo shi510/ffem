@@ -35,7 +35,7 @@ You have image_list.json file with the format (json) as below.
   ...
 }
 ```
-The `key` is a relative path of an each face image or just an image name.  
+The `key` is a relative path of a face image.   
 The `value` of the key contains label number and bounding box that indicates exact face location.  
 The bounding box [x1, y1, x2, y2] is [left, top, right, bottom] respectively.  
 We generated the bounding box using [[10]](https://github.com/blaueck/tf-mtcnn).  
@@ -49,12 +49,12 @@ Set 'num_identity' option that is the number of face identities in the 'train_fi
 ## First Step (Classifier)
 1. Choose 'batch_size' for consideration of memory capacity.  
 2. Set 'train_classifier' to `True`.  
-3. Run -> python example/train/main.py  
+3. Run `python example/train/main.py`.  
 
 ## Last Step (Metric Learning)
 1. Set 'train_classifier' to `False`.  
 2. Choose 'metric_loss' option.  
-3. Run -> python example/train/main.py  
+3. Run `python example/train/main.py`.  
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)

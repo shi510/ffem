@@ -28,7 +28,7 @@ keras_model_custom_obj = {
 
 
 def build_dataset(config):
-    ds = input_pipeline.make_RFW_tfdataset_v2(
+    ds = input_pipeline.make_RFW_tfdataset(
         config['train_file'],
         config['img_root_path'],
         config['num_identity'],

@@ -59,41 +59,7 @@ def zoom(img_shape):
     return zoom_wrap
 
 
-def make_RFW_tfdataset(root_path, race_list, num_id, batch_size, img_shape, onehot=False):
-    img_pathes, img_labels, classes = utils.read_RFW_train_list(root_path, race_list, num_id)
-    num_id = classes if num_id is None else num_id
-    ds = tf.data.Dataset.from_tensor_slices((img_pathes, img_labels))
-    ds = ds.shuffle(len(img_pathes))
-
-    def _preprocess_image(image):
-        image = tf.io.decode_jpeg(image, channels=3)
-        image = tf.image.resize(image, img_shape)
-        image /= 255 # normalize to [0,1] range
-        return image
-
-
-    def _load_and_preprocess_image(img_path, label):
-        img_path = root_path + os.sep + img_path
-        image = tf.io.read_file(img_path)
-        return _preprocess_image(image), label
-
-
-    ds = ds.map(_load_and_preprocess_image)
-    augmentations = [flip, color, zoom(img_shape)]
-    for f in augmentations:
-        choice = tf.random.uniform([], 0, 1)
-        ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label), num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0, 1), label))
-    num_class = None
-    if onehot:
-        num_class = len(race_list) * num_id
-        ds = ds.map(lambda img, label : (img, tf.one_hot(label, num_class)))
-    ds = ds.batch(batch_size)
-    ds = ds.prefetch(TF_AUTOTUNE)
-    return ds, num_class
-
-
-def make_RFW_tfdataset_v2(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
+def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
     pathes, labels, boxes = utils.read_dataset_from_json(list_file)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
