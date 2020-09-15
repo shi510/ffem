@@ -68,6 +68,7 @@ config = {
     #
     # lr * decay_rate ^ (steps / decay_steps)
     #
+    'lr_decay': False,
     'lr_decay_steps' : 25000,
     'lr_decay_rate' : 0.96,
 

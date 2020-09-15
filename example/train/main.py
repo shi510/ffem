@@ -97,20 +97,21 @@ def build_model(config, num_class):
     return net, loss_fn
 
 
-def build_callbacks():
+def build_callbacks(config):
     callback_list = []
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='loss', factor=0.1,
-        patience=5, min_lr=1e-4)
+        monitor='loss', factor=0.5,
+        patience=10, min_lr=1e-4)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath='./checkpoint',
+        filepath=config['checkpoint_dir'],
         save_weights_only=False,
         monitor='loss',
         mode='auto',
         save_best_only=False)
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=20)
 
-    callback_list.append(reduce_lr)
+    if not config['lr_decay']:
+        callback_list.append(reduce_lr)
     callback_list.append(checkpoint)
     callback_list.append(early_stop)
     return callback_list
@@ -123,7 +124,7 @@ def visualize_embeddings(config, identities=50):
         if label >= identities:
             break
         indexed_data.append({'path': path, 'label': label})
-    model = tf.keras.models.load_model('./checkpoint',
+    model = tf.keras.models.load_model(config['saved_model'],
         custom_objects=keras_model_custom_obj)
     if config['train_classifier']:
         last_out = model.get_layer('dense').output
@@ -172,17 +173,21 @@ def visualize_embeddings(config, identities=50):
 
 
 def build_optimizer(config):
-    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        config['lr'],
-        decay_steps=config['lr_decay_steps'],
-        decay_rate=config['lr_decay_rate'],
-        staircase=True)
+    # In tf-v2.3.0, Do not use tf.keras.optimizers.schedules with ReduceLR callback.
+    if config['lr_decay']:
+        lr = tf.keras.optimizers.schedules.ExponentialDecay(
+            config['lr'],
+            decay_steps=config['lr_decay_steps'],
+            decay_rate=config['lr_decay_rate'],
+            staircase=True)
+    else:
+        lr = config['lr']
 
     opt_list = {
         'adam': 
-            tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+            tf.keras.optimizers.Adam(learning_rate=lr),
         'sgd':
-            tf.keras.optimizers.SGD(learning_rate=lr_schedule,
+            tf.keras.optimizers.SGD(learning_rate=lr,
                 momentum=0.9, nesterov=True)
     }
     if config['optimizer'] not in opt_list:
@@ -203,8 +208,9 @@ if __name__ == '__main__':
     if config['use_keras']:
         model.compile(optimizer=opt, loss=loss_fn)
         model.fit(train_ds, epochs=config['epoch'], verbose=1,
-            workers=10, callbacks=build_callbacks())
-        model.save('{}.h5'.format(config['model_name']))
+            workers=10, callbacks=build_callbacks(config))
+        model.save('{}.h5'.format(config['model_name']),
+            include_optimizer=False)
     else:
         # Iterate over epochs.
         for epoch in range(config['epoch']):
