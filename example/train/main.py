@@ -208,7 +208,9 @@ if __name__ == '__main__':
     if config['use_keras']:
         model.compile(optimizer=opt, loss=loss_fn)
         model.fit(train_ds, epochs=config['epoch'], verbose=1,
-            workers=10, callbacks=build_callbacks(config))
+            workers=input_pipeline.TF_AUTOTUNE,
+            callbacks=build_callbacks(config),
+            shuffle=True)
         model.save('{}.h5'.format(config['model_name']),
             include_optimizer=False)
     else:

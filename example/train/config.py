@@ -29,6 +29,7 @@ config = {
     'shape' : [128, 128, 3],
 
     #
+    # If 'saved_model' not exsits, then it will be built with this architecture.
     # Choose one of below: 
     # 1. MobileNetV2
     # 2. ResNet18
@@ -58,7 +59,7 @@ config = {
     #  2. sgd with momentum=0.9 and nesterov=True
     #
     'optimizer' : 'sgd',
-    'epoch' : 2000,
+    'epoch' : 10000,
 
     #
     # initial learning rate.

@@ -63,7 +63,6 @@ def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, oneh
     pathes, labels, boxes = utils.read_dataset_from_json(list_file)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
-    ds = ds.shuffle(len(pathes))
 
     def _load_and_preprocess_image(path, label, box):
         path = root_path + os.sep + path
