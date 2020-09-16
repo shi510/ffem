@@ -32,9 +32,10 @@ config = {
     # If 'saved_model' not exsits, then it will be built with this architecture.
     # Choose one of below: 
     # 1. MobileNetV2
-    # 2. ResNet18
+    # 2. MobileNetV3
+    # 3. ResNet18
     #
-    'model' : 'MobileNetV2',
+    'model' : 'MobileNetV3',
 
     #
     # The 'metric_loss' option is enabled when the 'train_classifier' option is turned off.
