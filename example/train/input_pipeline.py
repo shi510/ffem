@@ -103,9 +103,10 @@ def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, oneh
     ds = ds.map(_load_and_preprocess_image)
     ds = ds.map(_random_crop)
     augmentations = [flip, gray]
-    for f in augmentations:
+    probs = [0.5, 0.6]
+    for f, p in zip(augmentations, probs):
         choice = tf.random.uniform([], 0, 1)
-        ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
+        ds = ds.map(lambda x, label: (tf.cond(choice > p, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0, 1), label))
     if onehot:
