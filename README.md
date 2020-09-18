@@ -38,7 +38,7 @@ You have image_list.json file with the format (json) as below.
 The `key` is a relative path of a face image.   
 The `value` of the key contains label number and bounding box that indicates exact face location.  
 The bounding box [x1, y1, x2, y2] is [left, top, right, bottom] respectively.  
-We generated the bounding box using [[10]](https://github.com/blaueck/tf-mtcnn).  
+We generated the bounding box using [[11]](https://github.com/blaueck/tf-mtcnn).  
 
 ## Common Settings
 Execute the command `export PYTHONPATH=$(pwd)` first.  
@@ -46,24 +46,47 @@ Set 'img_root_path' option to know where the images are located.
 Set 'train_file' option saved with the format as mentioned above.  
 Set 'num_identity' option that is the number of face identities in the 'train_file'.  
 
-## First Step (Classifier)
-1. Choose 'batch_size' for consideration of memory capacity.  
-2. Set 'train_classifier' to `True`.  
-3. Run `python example/train/main.py`.  
+## Recommendation Steps for Training.
+1. Set 'train_classifier' to `True` and 'arc_margin_penalty' to `False`, then run `python example/train/main.py`.  
+2. Set 'arc_margin_penalty' to `True`, then run `python example/train/main.py`.  
+3. Set 'train_classifier' to `False`, then run `python example/train/main.py`.  
 
-## Last Step (Metric Learning)
-1. Set 'train_classifier' to `False`.  
-2. Choose 'metric_loss' option.  
-3. Run `python example/train/main.py`.  
+## Why Do I Have To Train With 3 Steps?
+As mentioned above, because it is hard to converge using a triplet loss from scratch.  
+A triplet training tends to collapse to f(x)=0, when you should not select hard-sample carefully.  
+So, train first with softmax classifier from scratch.  
+Then, train again with arc margin penalty.  
+Lastly, train arc margin penalty model with a triplet loss.  
+Actually You don't have to do last step.  
+You can use the arc margin penalty model to build face embedding application.  
+But if you don't have GPUs with large memory, you only train with small face identities becuase of memory limitation.  
+A triplet training does not depends on the number of face identities.  
+It only compares embedding distances between examples.  
+Also the second step is needed because of convergence issues on arc margin panlty.  
+It is alleviated by pretraining with softmax.  
+
+## TODO LIST
+Do ablation strudy for stable learning on large face identity.  
+
+- [ ] *Known as `Center Loss`*, A Discriminative Feature Learning Approach for Deep Face Recognition, Y. Wen et al., ECCV 2016
+- [ ] *Known as `L2 Softmax`*, L2-constrained Softmax Loss for Discriminative Face Verification, R. Ranjan et al., arXiv preprint arXiv:1703.09507 2017
+- [ ] Correcting the Triplet Selection Bias for Triplet Loss, B. Yu et al., ECCV 2018
+- [ ] SoftTriple Loss: Deep Metric Learning Without Triplet Sampling, Q. Qian et al., ICCV 2019
+- [ ] *Known as `Proxy-NCA`*, No Fuss Distance Metric Learning using Proxies, Y. Movshovitz-Attias et al., ICCV 2017
+- [ ] *Known as `Proxy-Anchor`*, Proxy Anchor Loss for Deep Metric Learning, S. Kim et al., CVPR 2020
+- [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
+- [ ] The Devil of Face Recognition is in the Noise, F. Wang et al., ECCV 2018
+
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)
 2. [Deep Face Recognition, VGGFACE](https://www.robots.ox.ac.uk/~vgg/publications/2015/Parkhi15/parkhi15.pdf)
 3. [RFW Face Dataset](http://www.whdeng.cn/RFW/index.html)
-4. https://github.com/davidsandberg/facenet/
-5. https://github.com/omoindrot/tensorflow-triplet-loss
-6. https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset
-7. https://github.com/peteryuX/arcface-tf2
-8. [Sharing problems I encountered training Arcface models](https://www.kaggle.com/c/recursion-cellular-image-classification/discussion/109987)
-9. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
-10. https://github.com/blaueck/tf-mtcnn
+4. [Trillion Pairs](http://trillionpairs.deepglint.com/overview)
+5. https://github.com/davidsandberg/facenet/
+6. https://github.com/omoindrot/tensorflow-triplet-loss
+7. https://www.wouterbulten.nl/blog/tech/data-augmentation-using-tensorflow-data-dataset
+8. https://github.com/peteryuX/arcface-tf2
+9. [Sharing problems I encountered training Arcface models](https://www.kaggle.com/c/recursion-cellular-image-classification/discussion/109987)
+10. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
+11. https://github.com/blaueck/tf-mtcnn

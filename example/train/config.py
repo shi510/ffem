@@ -19,12 +19,29 @@ config = {
     'use_keras': True,
 
     #
-    # You should train your model as classifier first for stable metric learning.
-    # It is trained with softmax-cross-entropy-with-logits loss function.
-    # Triplet-loss is easy to collapse to f(x)=0, when should not select hard-sample carefully.
-    # Turn this option off after training the classifier is done.
+    # Recommendation settings.
+    #  1. Set 'train_classifier' to True.
+    #  2. Set 'arc_margin_penalty' to False and train.
+    #  3. Set 'arc_margin_penalty' to True and train.
+    #  4. Set 'train_classifier' to False and train.
+    #
+    # Why do i have to train with 3 steps?
+    # Because it is hard to converge using a triplet loss from scratch.
+    # A triplet training tends to collapse to f(x)=0, when you should not select hard-sample carefully.
+    # So, train first with softmax classifier from scratch.
+    # Then, train again with arc margin penalty.
+    # Lastly, train arc margin penalty model with a triplet loss.
+    #
+    # Actually You don't have to do last step.
+    # You can use the arc margin penalty model to build face embedding application.
+    # But if you don't have gpus with large memory, you only train with small face identities becuase of memory limitation.
+    # A triplet training does not depends on the number of face identities.
+    # It only compares embedding distances between examples.
+    # Also the second step is needed because of convergence issues.
+    # It is alleviated by pretraining with softmax.
     #
     'train_classifier': True,
+    'arc_margin_penalty': False,
     'batch_size' : 192,
     'shape' : [128, 128, 3],
 

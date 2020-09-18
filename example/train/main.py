@@ -35,66 +35,52 @@ def build_dataset(config):
         config['batch_size'],
         config['shape'][:2],
         config['train_classifier'])
-    return ds, config['num_identity']
+    return ds
 
 
-def build_model(config, num_class):
-    net = None
-    loss_fn = None
-
+def build_backbone_model(config):
     if os.path.exists(config['saved_model']):
         net = tf.keras.models.load_model(
             config['saved_model'],
             custom_objects=keras_model_custom_obj)
         net.load_weights(config['saved_model']+'/variables/variables')
-        net.trainable = True
         print('Loading saved weights, Done.')
-        if not config['train_classifier']:
-            net = tf.keras.Model(net.input, net.get_layer('batch_normalization').output)
-            net.trainable = False
-            net.get_layer('dense').trainable = True
-            net.get_layer('batch_normalization').trainable = True
-            # net = tf.keras.Model(net.input, net.get_layer('flatten').output)
-            # net.trainable = False
-            # embedding = tf.keras.layers.Dense(
-            #     config['embedding_dim'], use_bias=False)(net.output)
-            # net = tf.keras.Model(net.input, embedding)
-        elif net.output.shape[-1] != num_class:
-            label = net.input[1]
-            embedding = net.get_layer('batch_normalization').output
-            embedding = margin_logit.ArcMarginPenaltyLogists(num_class, logist_scale=15)(embedding, label)
-            net = tf.keras.Model(net.input, embedding)
-
     else :
         net = model.models.get_model(config['model'], config['shape'])
-        embedding = tf.keras.layers.Dropout(rate=0.5)(net.output)
-        embedding = tf.keras.layers.GlobalAveragePooling2D()(embedding)
-        embedding = tf.keras.layers.Flatten()(embedding)
-        # embedding = tf.keras.layers.Dropout(rate=0.5)(net.output)
-        # embedding = tf.keras.layers.Flatten()(embedding)
 
+    return net
+
+
+def build_embedding_model(config, net):
+    net.trainable = True
+    classes = config['num_identity']
+
+    # Check if the model is pretrained by a name of the last layer.
+    # Because we always attach an auxiliary layer to the top of a backbone model.
+    is_pretrained = 'last_flatten' not in net.output.name
+    if is_pretrained:
+        if not config['train_classifier']:
+            net = tf.keras.Model(net.input, net.get_layer('embedding').output)
+        elif net.output.shape[-1] != classes:
+            net = tf.keras.Model(net.input, net.get_layer('embedding').output)
+            if config['arc_margin_penalty']:
+                net = model.models.attach_arc_margin_penalty(net, classes, 30)
+            else:
+                net = model.models.attach_classifier(net, classes)
+
+    else: # not pretrained, so attach auxiliary layer.
         if config['train_classifier']:
-            if num_class is None:
-                print('num_class == None')
-                exit(1)
-            label = tf.keras.Input([])
-            embedding = tf.keras.layers.Dense(config['embedding_dim'],
-                kernel_regularizer=tf.keras.regularizers.l2(5e-4))(embedding)
-            embedding = tf.keras.layers.BatchNormalization()(embedding)
-            embedding = margin_logit.ArcMarginPenaltyLogists(num_class, logist_scale=15)(embedding, label)
-            net = tf.keras.Model([net.input, label], embedding)
-            # embedding = tf.keras.layers.Dense(
-            #     num_class, name='embedding')(embedding)
+            net = model.models.attach_embedding(net, config['embedding_dim'])
+            if config['arc_margin_penalty']:
+                net = model.models.attach_arc_margin_penalty(net, classes, 30)
+            else:
+                net = model.models.attach_classifier(net, classes)
         else:
             embedding = tf.keras.layers.Dense(
                 config['embedding_dim'], use_bias=False)(embedding)
             net = tf.keras.Model(net.input, embedding)
 
-    if config['train_classifier']:
-        loss_fn = softmax_xent_loss_wrap
-    else:
-        loss_fn = utils.get_loss(config['metric_loss'])
-    return net, loss_fn
+    return net
 
 
 def build_callbacks(config):
@@ -106,8 +92,8 @@ def build_callbacks(config):
         filepath=config['checkpoint_dir'],
         save_weights_only=False,
         monitor='loss',
-        mode='auto',
-        save_best_only=False)
+        mode='min',
+        save_best_only=True)
     early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=20)
 
     if not config['lr_decay']:
@@ -198,20 +184,31 @@ def build_optimizer(config):
     return opt_list[config['optimizer']]
 
 
+def build_loss_fn(config):
+    if config['train_classifier']:
+        loss_fn = softmax_xent_loss_wrap
+    else:
+        loss_fn = utils.get_loss(config['metric_loss'])
+
+    return loss_fn
+
+
 if __name__ == '__main__':
     config = example.train.config.config
-    train_ds, num_class = build_dataset(config)
-    model, loss_fn = build_model(config, num_class)
+    net = build_backbone_model(config)
+    net = build_embedding_model(config, net)
+    loss_fn = build_loss_fn(config)
     opt = build_optimizer(config)
-    model.summary()
+    net.summary()
+    train_ds = build_dataset(config)
 
     if config['use_keras']:
-        model.compile(optimizer=opt, loss=loss_fn)
-        model.fit(train_ds, epochs=config['epoch'], verbose=1,
+        net.compile(optimizer=opt, loss=loss_fn)
+        net.fit(train_ds, epochs=config['epoch'], verbose=1,
             workers=input_pipeline.TF_AUTOTUNE,
             callbacks=build_callbacks(config),
             shuffle=True)
-        model.save('{}.h5'.format(config['model_name']),
+        net.save('{}.h5'.format(config['model_name']),
             include_optimizer=False)
     else:
         # Iterate over epochs.
@@ -221,16 +218,16 @@ if __name__ == '__main__':
             epoch_loss = np.zeros(1, dtype=np.float32)
             for step, (x, y) in enumerate(train_ds):
                 with tf.GradientTape() as tape:
-                    features = model(x)
+                    features = net(x)
                     total_loss = loss_fn(y, features)
                 epoch_loss += total_loss.numpy()
-                grads = tape.gradient(total_loss, model.trainable_weights)
-                opt.apply_gradients(zip(grads, model.trainable_weights))
+                grads = tape.gradient(total_loss, net.trainable_weights)
+                opt.apply_gradients(zip(grads, net.trainable_weights))
                 # with writer.as_default():
                 #     tf.summary.scalar('total_loss', total_loss, step)
                 if (step+1) % 100 == 0:
                     print('step %s: mean loss = %s' % (step, epoch_loss / step))
-            model.save('{}_{}.h5'.format(config['model_name'], epoch+1))
+            net.save('{}_{}.h5'.format(config['model_name'], epoch+1))
 
     print('Generating TensorBoard Projector for Embedding Vector...')
     visualize_embeddings(config)
