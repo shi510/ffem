@@ -39,34 +39,31 @@ def rect_from_landmark(lndmk):
 
 
 def save_bbox_to_json(lndmk_file, out_file):
-    f = open(lndmk_file, 'r')
-
     results = {}
     label_count = -1
     label_book = {}
     image_count = {}
-    for n, line in enumerate(f):
-        data = line.split(' ')
-        img_path = data[0]
-        label = data[1]
-        lnd_mark = np.array([float(p) for p in data[2:]])
-        bbox = rect_from_landmark(lnd_mark)
-        if label not in label_book:
-            label_count += 1
-            label_book[label] = label_count
-            image_count[label] = 1
-        else:
-            image_count[label] += 1
-        label = label_book[label]
-        # if label > 25000:
-        #     break
-        results[img_path] = {
-            'label': label,
-            'x1': int(bbox[0]), 'y1': int(bbox[1]),
-            'x2': int(bbox[2]), 'y2': int(bbox[3])
-        }
-        if n % 10000 == 0:
-            print('{} images are processed'.format(n))
+    with open(lndmk_file, 'r') as lndmk_f:
+        for n, line in enumerate(lndmk_f):
+            data = line.split(' ')
+            img_path = data[0]
+            label = data[1]
+            lnd_mark = np.array([float(p) for p in data[2:]])
+            bbox = rect_from_landmark(lnd_mark)
+            if label not in label_book:
+                label_count += 1
+                label_book[label] = label_count
+                image_count[label] = 1
+            else:
+                image_count[label] += 1
+            label = label_book[label]
+            results[img_path] = {
+                'label': label,
+                'x1': int(bbox[0]), 'y1': int(bbox[1]),
+                'x2': int(bbox[2]), 'y2': int(bbox[3])
+            }
+            if n % 10000 == 0:
+                print('{} images are processed'.format(n))
 
-    with open(out_file, 'w') as f:
-        json.dump(results, f, indent=2)
+    with open(out_file, 'w') as out_f:
+        json.dump(results, out_f, indent=2)
