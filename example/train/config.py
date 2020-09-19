@@ -13,6 +13,11 @@ config = {
     'saved_model': './checkpoint',
 
     #
+    # The directory in where the best model is saved at each epoch.
+    #
+    'checkpoint_dir': './checkpoint_mobileV3',
+
+    #
     # Which do you want to execute with Keras or Eager Mode?
     # Eager mode is for debugging.
     #
