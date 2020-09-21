@@ -5,26 +5,9 @@ import example.train.utils as utils
 import example.train.input_pipeline as input_pipeline
 import example.train.config
 import model.models
-import model.logit_fn.margin_logit as margin_logit
 
 import tensorflow as tf
 import numpy as np
-from tensorboard.plugins import projector
-
-
-def softmax_xent_loss_wrap(y_true, y_pred):
-    loss = tf.nn.softmax_cross_entropy_with_logits(y_true, y_pred)
-    return tf.reduce_mean(loss)
-
-
-keras_model_custom_obj = {
-    'softmax_xent_loss_wrap':
-        softmax_xent_loss_wrap,
-    'original_triplet_loss':
-        utils.get_loss('triplet_loss.original_triplet_loss'),
-    'adversarial_triplet_loss':
-        utils.get_loss('triplet_loss.adversarial_triplet_loss'),
-}
 
 
 def build_dataset(config):
@@ -42,7 +25,7 @@ def build_backbone_model(config):
     if os.path.exists(config['saved_model']):
         net = tf.keras.models.load_model(
             config['saved_model'],
-            custom_objects=keras_model_custom_obj)
+            custom_objects=utils.keras_model_custom_obj)
         if os.path.isdir(config['saved_model']):
             net.load_weights(config['saved_model']+'/variables/variables')
             print('Loading saved weights, Done.')
@@ -104,70 +87,6 @@ def build_callbacks(config):
     return callback_list
 
 
-def visualize_embeddings(config, identities=50):
-    pathes, labels, boxes = utils.read_dataset_from_json(config['train_file'])
-    indexed_data = []
-    for n, (path, label, box) in enumerate(zip(pathes, labels, boxes)):
-        if label >= identities:
-            break
-        indexed_data.append({'path': path, 'label': label, 'box': box})
-    model = tf.keras.models.load_model(config['saved_model'],
-        custom_objects=keras_model_custom_obj)
-    if os.path.isdir(config['saved_model']):
-        model.load_weights(config['saved_model']+'/variables/variables')
-    if config['train_classifier']:
-        last_out = model.get_layer('embedding').output
-        embedding_dim = last_out.shape[-1]
-    else:
-        last_out = model.output
-        embedding_dim = config['embedding_dim']
-    # embeddings = tf.math.l2_normalize(last_out, axis=1, name='l2_norm')
-    embeddings = last_out
-    model = tf.keras.Model(model.input, embeddings)
-    embedding_array = np.ndarray((len(indexed_data), embedding_dim))
-
-    for n, attr in enumerate(indexed_data):
-        img_path = os.path.join(config['img_root_path'], attr['path'])
-        img = tf.io.read_file(img_path)
-        img = tf.io.decode_jpeg(img, channels=3)
-        shape = tf.shape(img)
-        shape = tf.repeat(shape, [2, 2, 0])
-        shape = tf.scatter_nd([[0], [2], [1], [3]], shape, tf.constant([4]))
-        box = np.array(attr['box'], dtype=np.float32)
-        box /= tf.cast(shape, tf.float32)
-        box = tf.clip_by_value(box, 0, 1)
-        img = tf.image.crop_and_resize([img], [box], [0], attr['shape'][:2])[0]
-        img /= 255 # normalize to [0,1] range
-        img = tf.expand_dims(img, 0)
-        em = model(img)
-        embedding_array[n,] = em.numpy()
-    # Set up a logs directory, so Tensorboard knows where to look for files
-    log_dir='embedding_log'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    # Save Labels separately on a line-by-line manner.
-    with open(os.path.join(log_dir, 'metadata.tsv'), "w") as f:
-        for data in indexed_data:
-            f.write("{}\n".format(data['label']))
-
-    # Save the weights we want to analyse as a variable. Note that the first
-    # value represents any unknown word, which is not in the metadata, so
-    # we will remove that value.
-    embedding = tf.Variable(embedding_array, name='embedding')
-    # Create a checkpoint from embedding, the filename and key are
-    # name of the tensor.
-    checkpoint = tf.train.Checkpoint(embedding=embedding)
-    checkpoint.save(os.path.join(log_dir, "embedding.ckpt"))
-
-    # Set up config
-    config = projector.ProjectorConfig()
-    embedding = config.embeddings.add()
-    embedding.tensor_name = "embedding/.ATTRIBUTES/VARIABLE_VALUE"
-    embedding.metadata_path = 'metadata.tsv'
-    projector.visualize_embeddings(log_dir, config)
-
-
 def build_optimizer(config):
     # In tf-v2.3.0, Do not use tf.keras.optimizers.schedules with ReduceLR callback.
     if config['lr_decay']:
@@ -196,7 +115,7 @@ def build_optimizer(config):
 
 def build_loss_fn(config):
     if config['train_classifier']:
-        loss_fn = softmax_xent_loss_wrap
+        loss_fn = model.loss_fn.default_loss.softmax_xent_loss_wrap
     else:
         loss_fn = utils.get_loss(config['metric_loss'])
 
@@ -239,4 +158,4 @@ if __name__ == '__main__':
             net.save('{}_{}.h5'.format(config['model_name'], epoch+1))
 
     print('Generating TensorBoard Projector for Embedding Vector...')
-    visualize_embeddings(config)
+    utils.visualize_embeddings(config)
