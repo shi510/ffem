@@ -43,8 +43,9 @@ def build_backbone_model(config):
         net = tf.keras.models.load_model(
             config['saved_model'],
             custom_objects=keras_model_custom_obj)
-        net.load_weights(config['saved_model']+'/variables/variables')
-        print('Loading saved weights, Done.')
+        if os.path.isdir(config['saved_model']):
+            net.load_weights(config['saved_model']+'/variables/variables')
+            print('Loading saved weights, Done.')
     else :
         net = model.models.get_model(config['model'], config['shape'])
 
@@ -106,27 +107,36 @@ def build_callbacks(config):
 def visualize_embeddings(config, identities=50):
     pathes, labels, boxes = utils.read_dataset_from_json(config['train_file'])
     indexed_data = []
-    for n, (path, label) in enumerate(zip(pathes, labels)):
+    for n, (path, label, box) in enumerate(zip(pathes, labels, boxes)):
         if label >= identities:
             break
-        indexed_data.append({'path': path, 'label': label})
+        indexed_data.append({'path': path, 'label': label, 'box': box})
     model = tf.keras.models.load_model(config['saved_model'],
         custom_objects=keras_model_custom_obj)
+    if os.path.isdir(config['saved_model']):
+        model.load_weights(config['saved_model']+'/variables/variables')
     if config['train_classifier']:
-        last_out = model.get_layer('dense').output
+        last_out = model.get_layer('embedding').output
         embedding_dim = last_out.shape[-1]
     else:
         last_out = model.output
         embedding_dim = config['embedding_dim']
-    embeddings = tf.math.l2_normalize(last_out, axis=1)
+    # embeddings = tf.math.l2_normalize(last_out, axis=1, name='l2_norm')
+    embeddings = last_out
     model = tf.keras.Model(model.input, embeddings)
     embedding_array = np.ndarray((len(indexed_data), embedding_dim))
 
-    for n, img_path in enumerate(indexed_data):
-        img_path = os.path.join(config['img_root_path'], img_path['path'])
+    for n, attr in enumerate(indexed_data):
+        img_path = os.path.join(config['img_root_path'], attr['path'])
         img = tf.io.read_file(img_path)
         img = tf.io.decode_jpeg(img, channels=3)
-        img = tf.image.resize(img, config['shape'][:2])
+        shape = tf.shape(img)
+        shape = tf.repeat(shape, [2, 2, 0])
+        shape = tf.scatter_nd([[0], [2], [1], [3]], shape, tf.constant([4]))
+        box = np.array(attr['box'], dtype=np.float32)
+        box /= tf.cast(shape, tf.float32)
+        box = tf.clip_by_value(box, 0, 1)
+        img = tf.image.crop_and_resize([img], [box], [0], attr['shape'][:2])[0]
         img /= 255 # normalize to [0,1] range
         img = tf.expand_dims(img, 0)
         em = model(img)
@@ -208,8 +218,7 @@ if __name__ == '__main__':
             workers=input_pipeline.TF_AUTOTUNE,
             callbacks=build_callbacks(config),
             shuffle=True)
-        net.save('{}.h5'.format(config['model_name']),
-            include_optimizer=False)
+        net.save('{}.h5'.format(config['model_name']))
     else:
         # Iterate over epochs.
         for epoch in range(config['epoch']):
