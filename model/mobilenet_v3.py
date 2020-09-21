@@ -264,7 +264,6 @@ def MobileNetV3(stack_fn,
     se_ratio = 0.25
 
   x = img_input
-  x = layers.Rescaling(1. / 255.)(x)
   x = layers.Conv2D(
       16,
       kernel_size=3,
@@ -555,4 +554,5 @@ def MakeMobileNetV3(shape):
     alpha=1.0,
     include_top=None,
     weights=None,
+    minimalistic=True,
     classifier_activation=None)
