@@ -1,6 +1,7 @@
 # FFEM  
 FFEM stands for Face Feature Embedding Module.  
 This project is tested on tensorflow-v2.3.0.  
+The tensorflow-addons is needed for tfa.images.  
 
 ## Things You Should Know Before Training Your Model
 It is difficult to train an embedding model with a triplet loss from scratch.  
@@ -57,7 +58,7 @@ A triplet training tends to collapse to f(x)=0, when you should not select hard-
 So, train first with softmax classifier from scratch.  
 Then, train again with arc margin penalty.  
 Lastly, train arc margin penalty model with a triplet loss.  
-Actually You don't have to do last step.  
+Actually you don't have to do last step.  
 You can use the arc margin penalty model to build face embedding application.  
 But if you don't have GPUs with large memory, you only train with small face identities becuase of memory limitation.  
 A triplet training does not depends on the number of face identities.  

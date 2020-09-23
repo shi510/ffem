@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow_addons as tfa
 import numpy as np
 import os
 import example.train.utils as utils
@@ -59,6 +60,25 @@ def zoom(img_shape):
     return zoom_wrap
 
 
+def blur(x):
+    choice = tf.random.uniform([], 0, 1, dtype=tf.float32)
+    def gfilter(x):
+        return tfa.image.gaussian_filter2d(x, [5, 5], 1.0, 'REFLECT', 0)
+
+
+    def mfilter(x):
+        return tfa.image.median_filter2d(x, [5, 5], 'REFLECT', 0)
+
+
+    return tf.cond(choice > 0.5, lambda: gfilter(x), lambda: mfilter(x))
+
+
+def cutout(x : tf.Tensor):
+    const_rnd = tf.random.uniform([], 0., 1.)
+    size = tf.random.uniform([], 0, 40, dtype=tf.int32)
+    return tfa.image.random_cutout(x, (size, size), const_rnd)
+
+
 def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
     pathes, labels, boxes = utils.read_dataset_from_json(list_file)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
@@ -102,15 +122,16 @@ def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, oneh
 
     ds = ds.map(_load_and_preprocess_image)
     ds = ds.map(_random_crop)
-    augmentations = [flip, gray]
-    probs = [0.5, 0.6]
-    for f, p in zip(augmentations, probs):
-        choice = tf.random.uniform([], 0, 1)
-        ds = ds.map(lambda x, label: (tf.cond(choice > p, lambda: f(x), lambda: x), label),
+    augmentations = [flip, blur]
+    for f in augmentations:
+        choice = tf.random.uniform([], 0.0, 1.0)
+        ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0, 1), label))
+    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label))
+    ds = ds.batch(batch_size)
+    ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     if onehot:
         ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, num_id)))
-    ds = ds.batch(batch_size)
     ds = ds.prefetch(TF_AUTOTUNE)
     return ds
+
