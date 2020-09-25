@@ -1,9 +1,10 @@
 import math
 import os
 
-import example.train.utils as utils
-import example.train.input_pipeline as input_pipeline
-import example.train.config
+import train.utils as utils
+import train.input_pipeline as input_pipeline
+import train.config
+from train.arc_face_base import ArcFaceModel
 import model.models
 
 import tensorflow as tf
@@ -123,7 +124,7 @@ def build_loss_fn(config):
 
 
 if __name__ == '__main__':
-    config = example.train.config.config
+    config = train.config.config
     net = build_backbone_model(config)
     net = build_embedding_model(config, net)
     loss_fn = build_loss_fn(config)

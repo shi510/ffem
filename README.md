@@ -48,9 +48,9 @@ Set 'train_file' option saved with the format as mentioned above.
 Set 'num_identity' option that is the number of face identities in the 'train_file'.  
 
 ## Recommendation Steps for Training.
-1. Set 'train_classifier' to `True` and 'arc_margin_penalty' to `False`, then run `python example/train/main.py`.  
-2. Set 'arc_margin_penalty' to `True`, then run `python example/train/main.py`.  
-3. Set 'train_classifier' to `False`, then run `python example/train/main.py`.  
+1. Set 'train_classifier' to `True` and 'arc_margin_penalty' to `False`, then run `python train/main.py`.  
+2. Set 'arc_margin_penalty' to `True`, then run `python train/main.py`.  
+3. Set 'train_classifier' to `False`, then run `python train/main.py`.  
 
 ## Why Do I Have To Train With 3 Steps?
 As mentioned above, because it is hard to converge using a triplet loss from scratch.  

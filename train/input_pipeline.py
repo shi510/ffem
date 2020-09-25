@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 import numpy as np
 import os
-import example.train.utils as utils
+import train.utils as utils
 
 
 TF_AUTOTUNE = tf.data.experimental.AUTOTUNE
