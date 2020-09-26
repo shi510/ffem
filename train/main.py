@@ -4,7 +4,6 @@ import os
 import train.utils as utils
 import train.input_pipeline as input_pipeline
 import train.config
-from train.arc_face_base import ArcFaceModel
 import model.models
 
 import tensorflow as tf
