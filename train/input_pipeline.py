@@ -76,12 +76,18 @@ def blur(x):
 
 
 def cutout(x : tf.Tensor):
-    const_rnd = tf.random.uniform([], 0., 1.)
-    size = tf.random.uniform([], 0, 40, dtype=tf.int32)
-    return tfa.image.random_cutout(x, (size, size), const_rnd)
+
+    def _cutout(x : tf.Tensor):
+        const_rnd = tf.random.uniform([], 0., 1.)
+        size = tf.random.uniform([], 0, 30, dtype=tf.int32)
+        return tfa.image.random_cutout(x, (size, size), const_rnd)
 
 
-def make_RFW_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
+    choice = tf.random.uniform([], 0., 1., dtype=tf.float32)
+    return tf.cond(choice > 0.5, lambda: _cutout(x), lambda: x)
+
+
+def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
     pathes, labels, boxes = utils.read_dataset_from_json(list_file)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))

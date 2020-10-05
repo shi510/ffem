@@ -4,14 +4,16 @@ import os
 import train.utils as utils
 import train.input_pipeline as input_pipeline
 import train.config
+from train.callbacks import LossTensorBoard
 import model.models
+import train.blocks
 
 import tensorflow as tf
 import numpy as np
 
 
 def build_dataset(config):
-    ds = input_pipeline.make_RFW_tfdataset(
+    ds = input_pipeline.make_tfdataset(
         config['train_file'],
         config['img_root_path'],
         config['num_identity'],
@@ -22,68 +24,103 @@ def build_dataset(config):
 
 
 def build_backbone_model(config):
+    """
+        The saved model should contain the layers below:
+            1. Input Layer
+            2. Backbone Net layer
+            3. Embeeding Layer
+    """
+
     if os.path.exists(config['saved_model']):
         net = tf.keras.models.load_model(
             config['saved_model'],
             custom_objects=utils.keras_model_custom_obj)
         if os.path.isdir(config['saved_model']):
             net.load_weights(config['saved_model']+'/variables/variables')
-            print('Loading saved weights, Done.')
+        if len(net.layers) is not 2:
+            y = x = net.layers[0].input
+            y = net.layers[1](y)
+            net = tf.keras.Model(x, y, name = net.name)
+        print('')
+        print('******************** Loaded saved weights ********************')
+        print('')
     else :
         net = model.models.get_model(config['model'], config['shape'])
 
     return net
 
 
-def build_embedding_model(config, net):
-    net.trainable = True
-    classes = config['num_identity']
+def build_basic_softmax_model(config):
+    y = x = tf.keras.Input(config['shape'])
+    y = build_backbone_model(config)(y)
 
-    # Check if the model is pretrained by a name of the last layer.
-    # Because we always attach an auxiliary layer to the top of a backbone model.
-    is_pretrained = 'last_flatten' not in net.output.name
-    if is_pretrained:
-        if not config['train_classifier']:
-            net = tf.keras.Model(net.input, net.get_layer('embedding').output)
-        elif net.output.shape[-1] != classes:
-            net = tf.keras.Model(net.input, net.get_layer('embedding').output)
-            if config['arc_margin_penalty']:
-                net = model.models.attach_arc_margin_penalty(net, classes, 30)
-            else:
-                net = model.models.attach_classifier(net, classes)
+    def _embedding_layer(feature):
+        y = x = tf.keras.Input(feature.shape[1:])
+        y = tf.keras.layers.Dropout(rate=0.3)(y)
+        y = tf.keras.layers.Flatten()(y)
+        y = train.blocks.attach_embedding_projection(y, config['embedding_dim'])
+        y = train.blocks.attach_l2_norm_features(y, scale=30)
+        return tf.keras.Model(x, y, name='embedding')(feature)
 
-    else: # not pretrained, so attach auxiliary layer.
-        if config['train_classifier']:
-            net = model.models.attach_embedding(net, config['embedding_dim'])
-            if config['arc_margin_penalty']:
-                net = model.models.attach_arc_margin_penalty(net, classes, 30)
-            else:
-                net = model.models.attach_classifier(net, classes)
-        else:
-            embedding = tf.keras.layers.Dense(
-                config['embedding_dim'], use_bias=False)(embedding)
-            net = tf.keras.Model(net.input, embedding)
 
-    return net
+    def _classification_layer(feature):
+        y = x = tf.keras.Input(feature.shape[1:])
+        y = tf.keras.layers.Dense(config['num_identity'])(y)
+        return tf.keras.Model(x, y, name='softmax_classifier')(feature)
+
+
+    y = _embedding_layer(y)
+    y = _classification_layer(y)
+    return tf.keras.Model(x, y, name=config['model_name'])
+
+
+def build_arc_margin_model(config):
+    y = x1 = tf.keras.Input(config['shape'])    
+    x2 = tf.keras.Input([])
+    y = build_backbone_model(config)(y)
+
+    def _embedding_layer(feature):
+        y = x = tf.keras.Input(feature.shape[1:])
+        y = tf.keras.layers.Dropout(rate=0.5)(y)
+        y = tf.keras.layers.BatchNormalization()(y)
+        y = tf.keras.layers.Flatten()(y)
+        y = train.blocks.attach_embedding_projection(y, config['embedding_dim'])
+        return tf.keras.Model(x, y, name='embedding')(feature)
+
+
+    def _arccos_margin_layer(feature, label):
+        y = x1 = tf.keras.Input(feature.shape[1:])
+        x2 = tf.keras.Input(label.shape[1:])
+        y = train.blocks.attach_arc_margin_penalty(
+            y, x2, config['num_identity'], scale=30)
+        return tf.keras.Model([x1, x2], y, name='arc_margin')((feature, label))
+
+
+    y = _embedding_layer(y)
+    y = _arccos_margin_layer(y, x2)
+    return tf.keras.Model([x1, x2], y, name=config['model_name'])
 
 
 def build_callbacks(config):
     callback_list = []
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='loss', factor=0.5,
-        patience=10, min_lr=1e-4)
+        monitor='loss', factor=0.1,
+        patience=5, min_lr=1e-4)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
         filepath=config['checkpoint_dir'],
         save_weights_only=False,
         monitor='loss',
         mode='min',
         save_best_only=True)
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=20)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10)
+    tensorboard_log = LossTensorBoard(
+        100, os.path.join('logs', config['model_name']))
 
     if not config['lr_decay']:
         callback_list.append(reduce_lr)
     callback_list.append(checkpoint)
     callback_list.append(early_stop)
+    callback_list.append(tensorboard_log)
     return callback_list
 
 
@@ -122,10 +159,36 @@ def build_loss_fn(config):
     return loss_fn
 
 
+def build_target_model(config):
+    if config['train_classifier'] and not config['arc_margin_penalty']:
+        net = build_basic_softmax_model(config)
+    elif config['train_classifier'] and config['arc_margin_penalty']:
+        net = build_arc_margin_model(config)
+    elif not config['train_classifier']:
+        net = build_backbone_model(config)
+    return net
+
+
+def save_model(name, net, trained_with_arg_margin):
+    """
+        net.layers[0] is a keras.Input layer.
+        net.layers[1] is a Backbone layer.
+        net.layers[2] is an Embedding layer.
+    """
+    y = x = net.layers[0].input
+    y = net.layers[1](y)
+    backbone = tf.keras.Model(x, y, name = net.name)
+    backbone.save('{}_backbone.h5'.format(name), include_optimizer=False)
+    if trained_with_arg_margin and len(net.layers) > 2:
+        y = net.layers[2](y)
+        embedding = tf.keras.Model(x, y, name = net.name)
+        embedding.save('{}.h5'.format(name), include_optimizer=False)
+
+
 if __name__ == '__main__':
     config = train.config.config
-    net = build_backbone_model(config)
-    net = build_embedding_model(config, net)
+    net = build_target_model(config)
+
     loss_fn = build_loss_fn(config)
     opt = build_optimizer(config)
     net.summary()
@@ -137,7 +200,7 @@ if __name__ == '__main__':
             workers=input_pipeline.TF_AUTOTUNE,
             callbacks=build_callbacks(config),
             shuffle=True)
-        net.save('{}.h5'.format(config['model_name']))
+        save_model(config['model_name'], net, config['arc_margin_penalty'])
     else:
         # Iterate over epochs.
         for epoch in range(config['epoch']):
@@ -157,5 +220,5 @@ if __name__ == '__main__':
                     print('step %s: mean loss = %s' % (step, epoch_loss / step))
             net.save('{}_{}.h5'.format(config['model_name'], epoch+1))
 
-    print('Generating TensorBoard Projector for Embedding Vector...')
-    utils.visualize_embeddings(config)
+    # print('Generating TensorBoard Projector for Embedding Vector...')
+    # utils.visualize_embeddings(config)
