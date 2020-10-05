@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-import train.layers
 import model.logit_fn.margin_logit as margin_logit
 
 
