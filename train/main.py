@@ -188,7 +188,6 @@ def save_model(name, net, trained_with_arg_margin):
 if __name__ == '__main__':
     config = train.config.config
     net = build_target_model(config)
-
     loss_fn = build_loss_fn(config)
     opt = build_optimizer(config)
     net.summary()

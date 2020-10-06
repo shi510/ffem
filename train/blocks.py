@@ -16,6 +16,19 @@ def attach_arc_margin_penalty(
     return out
 
 
+def attach_GNAP(x : tf.Tensor):
+    out = x
+    norm = tf.norm(out, ord=2, axis=3, keepdims=True)
+    norm = tf.math.maximum(norm, 1e-12)
+    mean = tf.math.reduce_mean(norm)
+    out = tf.keras.layers.BatchNormalization(scale=False)(out)
+    out = tf.math.divide(out, norm)
+    out = tf.multiply(out, mean)
+    out = tf.keras.layers.GlobalAveragePooling2D()(out)
+    out = tf.keras.layers.BatchNormalization(scale=False)(out)
+    return out
+
+
 def attach_embedding_projection(x : tf.Tensor, embedding_dim : int):
     out = x
     out = tf.keras.layers.Dense(embedding_dim,
