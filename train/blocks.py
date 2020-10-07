@@ -29,6 +29,12 @@ def attach_GNAP(x : tf.Tensor):
     return out
 
 
+def attach_l2_norm_features(x : tf.Tensor, scale=30):
+    x = tf.math.l2_normalize(x)
+    x = tf.multiply(x, scale)
+    return x
+
+
 def attach_embedding_projection(x : tf.Tensor, embedding_dim : int):
     out = x
     out = tf.keras.layers.Dense(embedding_dim,
