@@ -187,18 +187,17 @@ def save_model(name, net, trained_with_arg_margin):
 
 if __name__ == '__main__':
     config = train.config.config
+    train_ds = build_dataset(config)
     net = build_target_model(config)
     loss_fn = build_loss_fn(config)
     opt = build_optimizer(config)
     net.summary()
-    train_ds = build_dataset(config)
 
     if config['use_keras']:
         net.compile(optimizer=opt, loss=loss_fn)
         net.fit(train_ds, epochs=config['epoch'], verbose=1,
             workers=input_pipeline.TF_AUTOTUNE,
-            callbacks=build_callbacks(config),
-            shuffle=True)
+            callbacks=build_callbacks(config))
         save_model(config['model_name'], net, config['arc_margin_penalty'])
     else:
         # Iterate over epochs.

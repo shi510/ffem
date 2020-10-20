@@ -30,7 +30,7 @@ def get_loss(loss_type):
     return getattr(importlib.import_module('model.loss_fn.' + as_file), as_fn)
 
 
-def read_dataset_from_json(list_file):
+def read_dataset_from_json(list_file, label_upperbound=None):
     """
     Input:
         list_file: it should be saved with the format (json) as below.  
@@ -57,17 +57,22 @@ def read_dataset_from_json(list_file):
     pathes = []
     labels = []
     boxes = []
+    max_label = -1
     with open(list_file, 'r') as f:
         dataset = json.loads(f.read())
     for file_name in dataset:
         content = dataset[file_name]
+        if label_upperbound is not None and content['label'] >= label_upperbound:
+            continue
         pathes.append(file_name)
         labels.append(content['label'])
+        if content['label'] > max_label:
+            max_label = content['label']
         box = [float(content['y1']), float(content['x1']),
             float(content['y2']), float(content['x2'])]
         boxes.append(box)
 
-    return pathes, labels, boxes
+    return pathes, labels, boxes, max_label
 
 
 def visualize_embeddings(config, identities=50):

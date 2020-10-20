@@ -78,8 +78,8 @@ def blur(x):
 def cutout(x : tf.Tensor):
 
     def _cutout(x : tf.Tensor):
-        const_rnd = tf.random.uniform([], 0., 1.)
-        size = tf.random.uniform([], 0, 30, dtype=tf.int32)
+        const_rnd = tf.random.uniform([], 0., 255., dtype=tf.float32)
+        size = tf.random.uniform([], 0, 40, dtype=tf.int32)
         return tfa.image.random_cutout(x, (size, size), const_rnd)
 
 
@@ -88,9 +88,14 @@ def cutout(x : tf.Tensor):
 
 
 def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
-    pathes, labels, boxes = utils.read_dataset_from_json(list_file)
+    pathes, labels, boxes, max_label = utils.read_dataset_from_json(list_file, num_id)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
+    ds = ds.shuffle(100000)
+
+    print('')
+    print('*************** # of identities : {} ***************'.format(max_label+1))
+    print('')
 
     def _load_and_preprocess_image(path, label, box):
         path = root_path + os.sep + path
@@ -104,14 +109,13 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
         shape = tf.scatter_nd([[0], [2], [1], [3]], shape, tf.constant([4]))
         # Normalize [y1, x1, y2, x2] box by width and height.
         box /= tf.cast(shape, tf.float32)
-        # Normalize images to the range [0, 1].
-        image /= 255
+        image = tf.cast(image, tf.float32)
         return image, label, box
 
 
     def _random_crop(x: tf.Tensor, label, box):
         def crop_rnd_wrap(x, box):
-            scale = tf.random.uniform([4], -0.2, 0.2)
+            scale = tf.random.uniform([4], -0.1, 0.1)
             box += box * scale
             box = tf.clip_by_value(box, 0, 1)
             return tf.image.crop_and_resize([x], [box], [0], img_shape)[0]
@@ -128,6 +132,13 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
         return cond, label
 
 
+    def _normalize(x: tf.Tensor):
+        # Normalize images to the range [-1, 1].
+        x -= 127.5
+        x /= 128.
+        return x
+
+
     ds = ds.map(_load_and_preprocess_image)
     ds = ds.map(_random_crop)
     augmentations = [flip, blur]
@@ -135,11 +146,8 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
         choice = tf.random.uniform([], 0.0, 1.0)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label))
+    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 255.), label))
     ds = ds.batch(batch_size)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
-    if onehot:
-        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, num_id)))
-    ds = ds.prefetch(TF_AUTOTUNE)
-    return ds
-
+    ds = ds.map(lambda img, label : (_normalize(img), label))
+  
