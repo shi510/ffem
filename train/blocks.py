@@ -30,7 +30,7 @@ def attach_GNAP(x : tf.Tensor):
 
 
 def attach_l2_norm_features(x : tf.Tensor, scale=30):
-    x = tf.math.l2_normalize(x)
+    x = tf.math.l2_normalize(x, axis=1)
     x = tf.multiply(x, scale)
     return x
 
