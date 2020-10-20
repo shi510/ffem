@@ -150,4 +150,7 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
     ds = ds.batch(batch_size)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda img, label : (_normalize(img), label))
-  
+    if onehot:
+        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)))
+    ds = ds.prefetch(TF_AUTOTUNE)
+    return ds
