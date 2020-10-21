@@ -2,6 +2,7 @@ config = {
 
     #
     # Save trained model named with 'model_name'.h5.
+    # The best model named checkpoint + 'model_name' is saved at each epoch.
     #
     'model_name': 'face_angular_softmax_7000',
 
@@ -10,12 +11,7 @@ config = {
     # The architecture must be same with 'model' option.
     # checkpoint folder or keras saved file including extension.
     #
-    'saved_model': './checkpoint',
-
-    #
-    # The directory in where the best model is saved at each epoch.
-    #
-    'checkpoint_dir': './checkpoint_mobileV3',
+    'saved_model': '',
 
     #
     # Which do you want to execute with Keras or Eager Mode?
@@ -48,7 +44,7 @@ config = {
     'train_classifier': True,
     'arc_margin_penalty': False,
     'batch_size' : 192,
-    'shape' : [128, 128, 3],
+    'shape' : [112, 112, 3],
 
     #
     # If 'saved_model' not exsits, then it will be built with this architecture.
@@ -108,6 +104,7 @@ config = {
  
     #
     # Set maximum face ID in 'train_file'.
+    # If None, it is set by maximum label from the 'train_file'.
     #
-    'num_identity': 7000
+    'num_identity': None
 }

@@ -13,14 +13,14 @@ import numpy as np
 
 
 def build_dataset(config):
-    ds = input_pipeline.make_tfdataset(
+    ds, num_id = input_pipeline.make_tfdataset(
         config['train_file'],
         config['img_root_path'],
         config['num_identity'],
         config['batch_size'],
         config['shape'][:2],
         config['train_classifier'])
-    return ds
+    return ds, num_id
 
 
 def build_backbone_model(config):
@@ -50,7 +50,7 @@ def build_backbone_model(config):
     return net
 
 
-def build_basic_softmax_model(config):
+def build_basic_softmax_model(config, num_id):
     y = x = tf.keras.Input(config['shape'])
     y = build_backbone_model(config)(y)
 
@@ -65,7 +65,7 @@ def build_basic_softmax_model(config):
 
     def _classification_layer(feature):
         y = x = tf.keras.Input(feature.shape[1:])
-        y = tf.keras.layers.Dense(config['num_identity'])(y)
+        y = tf.keras.layers.Dense(num_id)(y)
         return tf.keras.Model(x, y, name='softmax_classifier')(feature)
 
 
@@ -74,7 +74,7 @@ def build_basic_softmax_model(config):
     return tf.keras.Model(x, y, name=config['model_name'])
 
 
-def build_arc_margin_model(config):
+def build_arc_margin_model(config, num_id):
     y = x1 = tf.keras.Input(config['shape'])    
     x2 = tf.keras.Input([])
     y = build_backbone_model(config)(y)
@@ -92,7 +92,7 @@ def build_arc_margin_model(config):
         y = x1 = tf.keras.Input(feature.shape[1:])
         x2 = tf.keras.Input(label.shape[1:])
         y = train.blocks.attach_arc_margin_penalty(
-            y, x2, config['num_identity'], scale=30)
+            y, x2, num_id, scale=60)
         return tf.keras.Model([x1, x2], y, name='arc_margin')((feature, label))
 
 
@@ -107,7 +107,7 @@ def build_callbacks(config):
         monitor='loss', factor=0.1,
         patience=5, min_lr=1e-4)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath=config['checkpoint_dir'],
+        filepath='./checkpoint'+os.path.sep+config['model_name'],
         save_weights_only=False,
         monitor='loss',
         mode='min',
@@ -159,11 +159,11 @@ def build_loss_fn(config):
     return loss_fn
 
 
-def build_target_model(config):
+def build_target_model(config, num_id):
     if config['train_classifier'] and not config['arc_margin_penalty']:
-        net = build_basic_softmax_model(config)
+        net = build_basic_softmax_model(config, num_id)
     elif config['train_classifier'] and config['arc_margin_penalty']:
-        net = build_arc_margin_model(config)
+        net = build_arc_margin_model(config, num_id)
     elif not config['train_classifier']:
         net = build_backbone_model(config)
     return net
@@ -187,8 +187,8 @@ def save_model(name, net, trained_with_arg_margin):
 
 if __name__ == '__main__':
     config = train.config.config
-    train_ds = build_dataset(config)
-    net = build_target_model(config)
+    train_ds, num_id = build_dataset(config)
+    net = build_target_model(config, num_id)
     loss_fn = build_loss_fn(config)
     opt = build_optimizer(config)
     net.summary()

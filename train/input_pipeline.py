@@ -10,7 +10,7 @@ import train.utils as utils
 TF_AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-def flip(x: tf.Tensor):
+def random_flip(x: tf.Tensor):
     return tf.image.random_flip_left_right(x)
 
 
@@ -18,48 +18,11 @@ def gray(x):
         return tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(x))
 
 
-def color(x: tf.Tensor):
-    def rgb_distort(x):
-        x = tf.image.random_hue(x, 0.08)
-        x = tf.image.random_saturation(x, 0.6, 1.6)
-        x = tf.image.random_brightness(x, 0.05)
-        x = tf.image.random_contrast(x, 0.7, 1.3)
-        return x
-
-
-    choice = tf.random.uniform([], 0, 1, dtype=tf.float32)
-    return tf.cond(choice < 0.5, lambda: gray(x), lambda: rgb_distort(x))
-
-
-def rotate(x: tf.Tensor):
-    return tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
-
-
-def zoom(img_shape):
-    def zoom_wrap(x: tf.Tensor):
-        # Generate 20 crop settings, ranging from a 1% to 20% crop.
-        scales = list(np.arange(0.7, 1.0, 0.05))
-        boxes = np.zeros((len(scales), 4))
-
-        for i, scale in enumerate(scales):
-            x1 = y1 = 0.5 - (0.5 * scale)
-            x2 = y2 = 0.5 + (0.5 * scale)
-            boxes[i] = [x1, y1, x2, y2]
-
-        def random_crop(img):
-            # Create different crops for an image
-            crops = tf.image.crop_and_resize([img], boxes=boxes, box_indices=np.zeros(len(scales)), crop_size=img_shape)
-            # Return a random crop
-            return crops[tf.random.uniform(shape=[], minval=0, maxval=len(scales), dtype=tf.int32)]
-
-
-        choice = tf.random.uniform(shape=[], minval=0., maxval=1., dtype=tf.float32)
-
-        # Only apply cropping 50% of the time
-        return tf.cond(choice < 0.1, lambda: x, lambda: random_crop(x))
-
-
-    return zoom_wrap
+def random_color(x: tf.Tensor):
+    x = tf.image.random_hue(x, 0.1)
+    x = tf.image.random_brightness(x, 0.1)
+    x = tf.image.random_contrast(x, 0.9, 1.1)
+    return x
 
 
 def blur(x):
@@ -78,7 +41,7 @@ def blur(x):
 def cutout(x : tf.Tensor):
 
     def _cutout(x : tf.Tensor):
-        const_rnd = tf.random.uniform([], 0., 255., dtype=tf.float32)
+        const_rnd = tf.random.uniform([], -1., 1., dtype=tf.float32)
         size = tf.random.uniform([], 0, 40, dtype=tf.int32)
         return tfa.image.random_cutout(x, (size, size), const_rnd)
 
@@ -142,15 +105,15 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
     ds = ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(_random_crop, num_parallel_calls=TF_AUTOTUNE)
     ds = ds.batch(batch_size)
-    augmentations = [flip, blur]
+    ds = ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
+    augmentations = [random_flip, random_color]
     for f in augmentations:
         choice = tf.random.uniform([], 0.0, 1.0)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 255.), label), num_parallel_calls=TF_AUTOTUNE)
+    ds = ds.map(lambda x, label: (tf.clip_by_value(x, -1., 1.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
     if onehot:
         ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.prefetch(TF_AUTOTUNE)
-    return ds
+    return ds, max_label+1
