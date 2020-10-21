@@ -91,7 +91,7 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
     pathes, labels, boxes, max_label = utils.read_dataset_from_json(list_file, num_id)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
-    ds = ds.shuffle(100000)
+    ds = ds.shuffle(10000)
 
     print('')
     print('*************** # of identities : {} ***************'.format(max_label+1))
@@ -139,18 +139,18 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
         return x
 
 
-    ds = ds.map(_load_and_preprocess_image)
-    ds = ds.map(_random_crop)
+    ds = ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
+    ds = ds.map(_random_crop, num_parallel_calls=TF_AUTOTUNE)
+    ds = ds.batch(batch_size)
     augmentations = [flip, blur]
     for f in augmentations:
         choice = tf.random.uniform([], 0.0, 1.0)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 255.), label))
-    ds = ds.batch(batch_size)
+    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 255.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda img, label : (_normalize(img), label))
+    ds = ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
     if onehot:
-        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)))
+        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.prefetch(TF_AUTOTUNE)
     return ds
