@@ -55,29 +55,30 @@ Set 'num_identity' option that is the number of face identities in the 'train_fi
 ## Why Do I Have To Train With 3 Steps?
 As mentioned above, because it is hard to converge using a triplet loss from scratch.  
 A triplet training tends to collapse to f(x)=0, when you should not select hard-sample carefully.  
-So, train first with softmax classifier from scratch.  
-Then, train again with arc margin penalty.  
-Lastly, train arc margin penalty model with a triplet loss.  
+So, train L2-constrained softmax classifier with small face identities first from scratch.  
+Then, finetune the trained L2-constrained model using arc margin penalty loss with large face identities.  
+Lastly, finetune the trained arc margin penalty model using a triplet loss.  
 Actually you don't have to do last step.  
-You can use the arc margin penalty model to build face embedding application.  
+You can use the arc margin penalty model to make face recognition application.  
 But if you don't have GPUs with large memory, you only train with small face identities becuase of memory limitation.  
 A triplet training does not depends on the number of face identities.  
-It only compares embedding distances between examples.  
-Also the second step is needed because of convergence issues on arc margin panlty.  
-It is alleviated by pretraining with softmax.  
+It only compares embedding distances between examples, so you can save gpu memory and allocate more batch-size.  
+Also the first step is needed because of convergence issues on arc margin panlty.  
+It is alleviated by pretraining an initial model with softmax.  
+On top of that, training the classifier with small(<=2000) face identities is sufficient to get good initialization for arc margin model.  
 
 ## TODO LIST
 Do ablation strudy for stable learning on large face identity.  
 
 - [ ] *Known as `Center Loss`*, A Discriminative Feature Learning Approach for Deep Face Recognition, Y. Wen et al., ECCV 2016
 - [x] *Known as `L2 Softmax`*, L2-constrained Softmax Loss for Discriminative Face Verification, R. Ranjan et al., arXiv preprint arXiv:1703.09507 2017
-- [ ] Correcting the Triplet Selection Bias for Triplet Loss, B. Yu et al., ECCV 2018
-- [ ] SoftTriple Loss: Deep Metric Learning Without Triplet Sampling, Q. Qian et al., ICCV 2019
 - [ ] *Known as `Proxy-NCA`*, No Fuss Distance Metric Learning using Proxies, Y. Movshovitz-Attias et al., ICCV 2017
-- [ ] *Known as `Proxy-Anchor`*, Proxy Anchor Loss for Deep Metric Learning, S. Kim et al., CVPR 2020
-- [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
+- [ ] Correcting the Triplet Selection Bias for Triplet Loss, B. Yu et al., ECCV 2018
+- [x] Global Norm-Aware Pooling for Pose-Robust Face Recognition at Low False Positive Rate, S. Chen et al., arXiv preprint arXiv:1808.00435 2018
 - [ ] The Devil of Face Recognition is in the Noise, F. Wang et al., ECCV 2018
-
+- [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
+- [ ] SoftTriple Loss: Deep Metric Learning Without Triplet Sampling, Q. Qian et al., ICCV 2019
+- [ ] *Known as `Proxy-Anchor`*, Proxy Anchor Loss for Deep Metric Learning, S. Kim et al., CVPR 2020
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)

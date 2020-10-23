@@ -96,10 +96,8 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
 
 
     def _normalize(x: tf.Tensor):
-        # Normalize images to the range [-1, 1].
-        x -= 127.5
-        x /= 128.
-        return x
+        # Normalize images to the range [0, 1].
+        return x / 255.
 
 
     ds = ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
