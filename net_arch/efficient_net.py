@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-def MobileNetV2(shape):
-    model = tf.keras.applications.MobileNetV2(
+def EfficientNetB3(shape):
+    model = tf.keras.applications.EfficientNetB3(
         input_shape=shape,
         classifier_activation=None,
         include_top=False,
