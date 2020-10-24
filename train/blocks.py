@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-import model.logit_fn.margin_logit as margin_logit
+import net_arch.logit_fn.margin_logit as margin_logit
 
 
 def attach_arc_margin_penalty(

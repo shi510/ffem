@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from tensorboard.plugins import projector
 
-import model.loss_fn.default_loss as default_loss
+import net_arch.loss_fn.default_loss as default_loss
 
 
 def open_config_file(file_path):
@@ -21,13 +21,13 @@ def open_config_file(file_path):
 def get_model(model_type):
     as_file = model_type.rpartition('.')[0]
     as_fn = model_type.rpartition('.')[2]
-    return getattr(importlib.import_module('model.' + as_file), as_fn)
+    return getattr(importlib.import_module('net_arch.' + as_file), as_fn)
 
 
 def get_loss(loss_type):
     as_file = loss_type.rpartition('.')[0]
     as_fn = loss_type.rpartition('.')[2]
-    return getattr(importlib.import_module('model.loss_fn.' + as_file), as_fn)
+    return getattr(importlib.import_module('net_arch.loss_fn.' + as_file), as_fn)
 
 
 def read_dataset_from_json(list_file, label_upperbound=None):

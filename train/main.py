@@ -5,7 +5,7 @@ import train.utils as utils
 import train.input_pipeline as input_pipeline
 import train.config
 from train.callbacks import LossTensorBoard
-import model.models
+import net_arch.models
 import train.blocks
 
 import tensorflow as tf
@@ -45,7 +45,7 @@ def build_backbone_model(config):
         print('******************** Loaded saved weights ********************')
         print('')
     else :
-        net = model.models.get_model(config['model'], config['shape'])
+        net = net_arch.models.get_model(config['model'], config['shape'])
 
     return net
 
@@ -152,7 +152,7 @@ def build_optimizer(config):
 
 def build_loss_fn(config):
     if config['train_classifier']:
-        loss_fn = model.loss_fn.default_loss.softmax_xent_loss_wrap
+        loss_fn = net_arch.loss_fn.default_loss.softmax_xent_loss_wrap
     else:
         loss_fn = utils.get_loss(config['metric_loss'])
 
