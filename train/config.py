@@ -51,7 +51,7 @@ config = {
     # Choose one of below: 
     # 1. MobileNetV2
     # 2. MobileNetV3
-    # 3. ResNet18
+    # 3. EfficientNetB3
     #
     'model' : 'MobileNetV3',
 
