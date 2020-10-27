@@ -44,6 +44,9 @@ def build_backbone_model(config):
         print('')
         print('******************** Loaded saved weights ********************')
         print('')
+    elif len(config['saved_model']) != 0:
+        print(config['saved_model'] + ' can not open.')
+        exit(1)
     else :
         net = net_arch.models.get_model(config['model'], config['shape'])
 
@@ -183,6 +186,23 @@ def save_model(name, net, trained_with_arg_margin):
         y = net.layers[2](y)
         embedding = tf.keras.Model(x, y, name = net.name)
         embedding.save('{}.h5'.format(name), include_optimizer=False)
+
+
+def convert_tflite_int8(model, ds):
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    def representative_dataset_gen():
+        for x, _ in ds:
+            # Get sample input data as a numpy array in a method of your choosing.
+            # The batch size should be 1.
+            yield [x[0]]
+    converter.representative_dataset = representative_dataset_gen
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+    converter.inference_input_type = tf.int8  # or tf.uint8
+    converter.inference_output_type = tf.int8  # or tf.uint8
+    tflite_quant_model = converter.convert()
+    with open(model.name + '.tflite', 'wb') as f:
+        f.write(tflite_quant_model)
 
 
 if __name__ == '__main__':

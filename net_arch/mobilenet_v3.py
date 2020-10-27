@@ -429,7 +429,7 @@ def MobileNetV3Large(input_shape=None,
 
 
 def relu(x):
-  return layers.ReLU()(x)
+  return layers.ReLU(max_value=6)(x)
 
 
 def hard_sigmoid(x):
