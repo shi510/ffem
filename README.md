@@ -67,6 +67,22 @@ Also the first step is needed because of convergence issues on arc margin panlty
 It is alleviated by pretraining an initial model with softmax.  
 On top of that, training the classifier with small(<=2000) face identities is sufficient to get good initialization for arc margin model.  
 
+## Training Conditions
+```
+1. Train MobiletNetV3 architecture from scratch as details below:
+ - L2-constrained softmax with 30 scale factor
+ - ReLU6 activation (Default in this repository)
+ - ADAM optimizer with 1e-4 learning rate
+ - 50 epochs
+ - VGGFACE2 dataset with 2K identities
+
+2. Train the above pretrained model as details below:
+ - additive angular margin loss, 0.5 margin and 60 scale factor
+ - SGD momentum nesterov optimizer with 1e-3 learning rate
+ - 10~15 epochs
+ - trillion pairs dataset with large identities
+```
+
 ## TODO LIST
 Do ablation strudy for stable learning on large face identity.  
 
