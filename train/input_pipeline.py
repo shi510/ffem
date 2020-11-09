@@ -41,7 +41,7 @@ def blur(x):
 def cutout(x : tf.Tensor):
 
     def _cutout(x : tf.Tensor):
-        const_rnd = tf.random.uniform([], -1., 1., dtype=tf.float32)
+        const_rnd = tf.random.uniform([], 0., 1., dtype=tf.float32)
         size = tf.random.uniform([], 0, 40, dtype=tf.int32)
         return tfa.image.random_cutout(x, (size, size), const_rnd)
 
@@ -109,7 +109,7 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
         choice = tf.random.uniform([], 0.0, 1.0)
         ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, -1., 1.), label), num_parallel_calls=TF_AUTOTUNE)
+    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     if onehot:
         ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
