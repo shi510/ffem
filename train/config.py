@@ -1,5 +1,5 @@
 config = {
-
+    'mixed_precision': True,
     #
     # Save trained model named with 'model_name'.h5.
     # The best model named checkpoint + 'model_name' is saved at each epoch.
