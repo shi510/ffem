@@ -7,7 +7,7 @@ import tensorflow_addons as tfa
 import train.utils as utils
 
 
-TF_AUTOTUNE = tf.data.experimental.AUTOTUNE
+TF_AUTOTUNE = tf.data.AUTOTUNE
 
 
 def random_flip(x: tf.Tensor):
@@ -42,7 +42,8 @@ def cutout(x : tf.Tensor):
 
     def _cutout(x : tf.Tensor):
         const_rnd = tf.random.uniform([], 0., 1., dtype=tf.float32)
-        size = tf.random.uniform([], 0, 40, dtype=tf.int32)
+        size = tf.random.uniform([], 0, 20, dtype=tf.int32)
+        size = size * 2
         return tfa.image.random_cutout(x, (size, size), const_rnd)
 
 
@@ -50,7 +51,7 @@ def cutout(x : tf.Tensor):
     return tf.cond(choice > 0.5, lambda: _cutout(x), lambda: x)
 
 
-def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=False):
+def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, arcface=False):
     pathes, labels, boxes, max_label = utils.read_dataset_from_json(list_file, num_id)
     assert len(pathes) == len(labels) and len(pathes) == len(boxes)
     ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
@@ -111,7 +112,9 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, onehot=F
             num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
-    if onehot:
+    if arcface:
         ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
+    else:
+        ds = ds.map(lambda img, label : (img, tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.prefetch(TF_AUTOTUNE)
     return ds, max_label+1

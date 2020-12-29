@@ -23,6 +23,10 @@ class ArcMarginPenaltyLogists(tf.keras.layers.Layer):
         self.cos_m = tf.identity(math.cos(self.margin), name='cos_m')
         self.sin_m = tf.identity(math.sin(self.margin), name='sin_m')
         self.th = tf.identity(math.cos(math.pi - self.margin), name='th')
+        if tf.keras.mixed_precision.global_policy().name == 'mixed_float16':
+            self.cos_m = tf.cast(self.cos_m, dtype=tf.float16)
+            self.sin_m = tf.cast(self.sin_m, dtype=tf.float16)
+            self.th = tf.cast(self.th, dtype=tf.float16)
         self.mm = tf.multiply(self.sin_m, self.margin, name='mm')
 
     def call(self, embds, labels):

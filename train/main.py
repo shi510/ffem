@@ -9,6 +9,7 @@ import net_arch.models
 import train.blocks
 
 import tensorflow as tf
+import tensorflow.keras.mixed_precision as mixed_precision
 import numpy as np
 
 
@@ -19,7 +20,7 @@ def build_dataset(config):
         config['num_identity'],
         config['batch_size'],
         config['shape'][:2],
-        config['train_classifier'])
+        config['arc_margin_penalty'])
     return ds, num_id
 
 
@@ -207,6 +208,10 @@ def convert_tflite_int8(model, ds):
 
 if __name__ == '__main__':
     config = train.config.config
+    if config['mixed_precision']:
+        print('---------------- Enabled Mixed Precision ----------------')
+        policy = mixed_precision.Policy('mixed_float16')
+        mixed_precision.set_global_policy(policy)
     train_ds, num_id = build_dataset(config)
     net = build_target_model(config, num_id)
     loss_fn = build_loss_fn(config)
