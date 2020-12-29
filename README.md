@@ -1,6 +1,6 @@
 # FFEM  
 FFEM stands for Face Feature Embedding Module.  
-This project is tested on tensorflow-v2.3.0.  
+The Tensorflow version should be v2.4.0 or later for mixed precision training.  
 The tensorflow-addons is needed for tfa.images.  
 
 ## Things You Should Know Before Training Your Model
@@ -95,6 +95,7 @@ Do ablation strudy for stable learning on large face identity.
 - [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
 - [ ] SoftTriple Loss: Deep Metric Learning Without Triplet Sampling, Q. Qian et al., ICCV 2019
 - [ ] *Known as `Proxy-Anchor`*, Proxy Anchor Loss for Deep Metric Learning, S. Kim et al., CVPR 2020
+- [ ] Relational Deep Feature Learning for Heterogeneous Face Recognition, M. Cho et al., IEEE 2020
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)
