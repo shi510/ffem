@@ -20,26 +20,7 @@ config = {
     'use_keras': True,
 
     #
-    # Recommendation settings.
-    #  1. Set 'train_classifier' to True.
-    #  2. Set 'arc_margin_penalty' to False and train.
-    #  3. Set 'arc_margin_penalty' to True and train.
-    #  4. Set 'train_classifier' to False and train.
-    #
-    # Why do i have to train with 3 steps?
-    # Because it is hard to converge using a triplet loss from scratch.
-    # A triplet training tends to collapse to f(x)=0, when you should not select hard-sample carefully.
-    # So, train first with softmax classifier from scratch.
-    # Then, train again with arc margin penalty.
-    # Lastly, train arc margin penalty model with a triplet loss.
-    #
-    # Actually You don't have to do last step.
-    # You can use the arc margin penalty model to build face embedding application.
-    # But if you don't have gpus with large memory, you only train with small face identities becuase of memory limitation.
-    # A triplet training does not depends on the number of face identities.
-    # It only compares embedding distances between examples.
-    # Also the second step is needed because of convergence issues.
-    # It is alleviated by pretraining with softmax.
+    # See README.md for 'train_classifier' and 'arc_margin_penalty' args.
     #
     'train_classifier': True,
     'arc_margin_penalty': False,
@@ -54,22 +35,6 @@ config = {
     # 3. EfficientNetB3
     #
     'model' : 'MobileNetV3',
-
-    #
-    # The 'metric_loss' option is enabled when the 'train_classifier' option is turned off.
-    # There are two functions for this option.
-    #  1. original_triplet_loss
-    #  2. adversarial_triplet_loss
-    # The original_triplet_loss is that it selects hard samples within mini-batch.
-    # The adversarial_triplet_loss is that it is same with original_triplet_loss except for calculating loss.
-    # As the name says, two loss functions are combined.
-    # One of them try to maximize an anchor-negative distance.
-    # The other try to minimize an anchor-positive distance.
-    # The adversarial_triplet_loss does not results in zero loss.
-    # But original_triplet_loss results in zero loss when it is satisfied by
-    #    ||anchor-positive|| < ||anchor-nagative|| + margin.
-    #
-    'metric_loss' : 'triplet_loss.original_triplet_loss',
     'embedding_dim': 512,
 
     #
@@ -92,19 +57,15 @@ config = {
     'lr_decay_steps' : 25000,
     'lr_decay_rate' : 0.96,
 
-    #
-    # It should be absolute path that indicates face image file location in 'train_file' contents.
-    #
-    'img_root_path': '/your/face/image/root_path',
 
     #
-    # See README.md file how to save this file.
+    # training dataset generated from generate_tfrecord/main.py
+    # See README.md
     #
-    'train_file': './train_list.json',
+    'tfrecord_file': 'your.tfrecord',
  
     #
-    # Set maximum face ID in 'train_file'.
-    # If None, it is set by maximum label from the 'train_file'.
+    # Set maximum face ID in 'tfrecord_file'.
     #
-    'num_identity': None
+    'num_identity': 2000
 }

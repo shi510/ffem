@@ -3,18 +3,6 @@ FFEM stands for Face Feature Embedding Module.
 The Tensorflow version should be v2.4.0 or later for mixed precision training.  
 The tensorflow-addons is needed for tfa.images.  
 
-## Things You Should Know Before Training Your Model
-It is difficult to train an embedding model with a triplet loss from scratch.  
-It often fails to converge and results in f(x)=0, where f(x) is an embedding vector.  
-To remedy this, there are a few options.  
-```
-1. Select triplet pair carefully with large mini-batch (>= 1800).
-2. Pretrain an embedding model as a classifier with softmax-cross-entropy loss.
-3. Try to train with other metric losses.
-```
-This project uses second option.  
-Pretrain first and fine-tune the pretrained model with metric losses.  
-
 ## How to Make Your Dataset
 You have image_list.json file with the format (json) as below.  
 ```
@@ -41,31 +29,33 @@ The `value` of the key contains label number and bounding box that indicates exa
 The bounding box [x1, y1, x2, y2] is [left, top, right, bottom] respectively.  
 We generated the bounding box using [[11]](https://github.com/blaueck/tf-mtcnn).  
 
+## Transform the json file into TFRECORD
+Input pipeline bottleneck increases training time.  
+Reading data from a large file sequentially is better than reading a lot of small sized data randomly.  
+Try the command below, it generates [name].tfrecord file from the above json file.  
+```
+python generate_tfrecord/main.py --root_path [path] --json_file [path] --output [name]
+```
+
 ## Common Settings
 Execute the command `export PYTHONPATH=$(pwd)` first.  
-Set 'img_root_path' option to know where the images are located.  
-Set 'train_file' option saved with the format as mentioned above.  
-Set 'num_identity' option that is the number of face identities in the 'train_file'.  
+Set 'img_root_path' arg to know where the images are located.  
+Set 'train_file' arg saved with the format as mentioned above.  
+Set 'num_identity' arg that is the number of face identities in the 'train_file'.  
 
 ## Recommendation Steps for Training.
 1. Set 'train_classifier' to `True` and 'arc_margin_penalty' to `False`, then run `python train/main.py`.  
 2. Set 'arc_margin_penalty' to `True`, then run `python train/main.py`.  
-3. Set 'train_classifier' to `False`, then run `python train/main.py`.  
 
-## Why Do I Have To Train With 3 Steps?
-As mentioned above, because it is hard to converge using a triplet loss from scratch.  
-A triplet training tends to collapse to f(x)=0, when you should not select hard-sample carefully.  
-So, train L2-constrained softmax classifier with small face identities first from scratch.  
-Then, finetune the trained L2-constrained model using arc margin penalty loss with large face identities.  
-Lastly, finetune the trained arc margin penalty model using a triplet loss.  
-Actually you don't have to do last step.  
-You can use the arc margin penalty model to make face recognition application.  
-But if you don't have GPUs with large memory, you only train with small face identities becuase of memory limitation.  
-A triplet training does not depends on the number of face identities.  
-It only compares embedding distances between examples, so you can save gpu memory and allocate more batch-size.  
-Also the first step is needed because of convergence issues on arc margin panlty.  
-It is alleviated by pretraining an initial model with softmax.  
-On top of that, training the classifier with small(<=2000) face identities is sufficient to get good initialization for arc margin model.  
+## Why Do I Have To Train With 2 Steps?
+If your face dataset quality is not good, your trained model also is not good.  
+It maybe good quality if your dataset has 200+ average images per identity.  
+In the case which you want to train asian dataset, trillion pairs, it has 30+ average images per identity.  
+So the quality of the dataset is not good, we should fine-tune a model from pretrained face embedding model.  
+There are good face dataset, for example, vggface2 dataset that has 300+ average images per identity.  
+Consequently you have to train with 2 steps.  
+The training steps is described below.  
+On top of that, small(<=2000) face identities are sufficient to get good initialization when you are training the first step.  
 
 ## Training Conditions
 ```

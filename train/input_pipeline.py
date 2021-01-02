@@ -51,20 +51,29 @@ def cutout(x : tf.Tensor):
     return tf.cond(choice > 0.5, lambda: _cutout(x), lambda: x)
 
 
-def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, arcface=False):
-    pathes, labels, boxes, max_label = utils.read_dataset_from_json(list_file, num_id)
-    assert len(pathes) == len(labels) and len(pathes) == len(boxes)
-    ds = tf.data.Dataset.from_tensor_slices((pathes, labels, boxes))
-    ds = ds.shuffle(10000)
+def make_tfdataset(tfrecord_path, classes, batch_size, img_shape, arcface=False):
+    ds = tf.data.TFRecordDataset(tfrecord_path)
 
-    print('')
-    print('*************** # of identities : {} ***************'.format(max_label+1))
-    print('')
+    def _read_tfrecord(serialized):
+        description = {
+            'jpeg': tf.io.FixedLenFeature((), tf.string),
+            'label': tf.io.FixedLenFeature((), tf.int64),
+            'x1': tf.io.FixedLenFeature((), tf.int64),
+            'y1': tf.io.FixedLenFeature((), tf.int64),
+            'x2': tf.io.FixedLenFeature((), tf.int64),
+            'y2': tf.io.FixedLenFeature((), tf.int64)
+        }
+        example = tf.io.parse_single_example(serialized, description)
+        image = tf.io.decode_jpeg(example['jpeg'], channels=3)
+        label = example['label']
+        box = [
+            tf.cast(example['y1'], tf.float32),
+            tf.cast(example['x1'], tf.float32),
+            tf.cast(example['y2'], tf.float32),
+            tf.cast(example['x2'], tf.float32)]
+        return image, label, box
 
-    def _load_and_preprocess_image(path, label, box):
-        path = root_path + os.sep + path
-        image = tf.io.read_file(path)
-        image = tf.io.decode_jpeg(image, channels=3)
+    def _load_and_preprocess_image(image, label, box):
         # shape = [Height, Width, Channel]
         shape = tf.shape(image)
         # shape = [Height, Height, Width, Width]
@@ -100,7 +109,8 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, arcface=
         # Normalize images to the range [0, 1].
         return x / 255.
 
-
+    ds = ds.map(_read_tfrecord)
+    ds = ds.shuffle(10000)
     ds = ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(_random_crop, num_parallel_calls=TF_AUTOTUNE)
     ds = ds.batch(batch_size)
@@ -113,8 +123,8 @@ def make_tfdataset(list_file, root_path, num_id, batch_size, img_shape, arcface=
     ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     if arcface:
-        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
+        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, classes)), num_parallel_calls=TF_AUTOTUNE)
     else:
-        ds = ds.map(lambda img, label : (img, tf.one_hot(label, max_label+1)), num_parallel_calls=TF_AUTOTUNE)
+        ds = ds.map(lambda img, label : (img, tf.one_hot(label, classes)), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.prefetch(TF_AUTOTUNE)
-    return ds, max_label+1
+    return ds, classes

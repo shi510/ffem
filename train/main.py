@@ -15,8 +15,7 @@ import numpy as np
 
 def build_dataset(config):
     ds, num_id = input_pipeline.make_tfdataset(
-        config['train_file'],
-        config['img_root_path'],
+        config['tfrecord_file'],
         config['num_identity'],
         config['batch_size'],
         config['shape'][:2],
@@ -165,12 +164,14 @@ def build_loss_fn(config):
 
 def build_target_model(config, num_id):
     if config['train_classifier'] and not config['arc_margin_penalty']:
-        net = build_basic_softmax_model(config, num_id)
+        return build_basic_softmax_model(config, num_id)
     elif config['train_classifier'] and config['arc_margin_penalty']:
-        net = build_arc_margin_model(config, num_id)
-    elif not config['train_classifier']:
-        net = build_backbone_model(config)
-    return net
+        return build_arc_margin_model(config, num_id)
+    else:
+        print('the below condition is not allowed.')
+        print('train_classifier: {}'.format(config['train_classifier']))
+        print('arc_margin_penalty: {}'.format(config['arc_margin_penalty']))
+        exit(1)
 
 
 def save_model(name, net, trained_with_arg_margin):
@@ -193,7 +194,9 @@ def convert_tflite_int8(model, ds):
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     def representative_dataset_gen():
-        for x, _ in ds:
+        for n, (x, _ )in enumerate(ds.take(10000)):
+            if n % 100 == 0:
+                print(n)
             # Get sample input data as a numpy array in a method of your choosing.
             # The batch size should be 1.
             yield [x[0]]
