@@ -39,13 +39,13 @@ python generate_tfrecord/main.py --root_path [path] --json_file [path] --output 
 
 ## Common Settings
 Execute the command `export PYTHONPATH=$(pwd)` first.  
-Set 'img_root_path' arg to know where the images are located.  
-Set 'train_file' arg saved with the format as mentioned above.  
-Set 'num_identity' arg that is the number of face identities in the 'train_file'.  
+Set 'tfrecord_file' and 'num_identity' in `train/config.py`.  
 
 ## Recommendation Steps for Training.
-1. Set 'train_classifier' to `True` and 'arc_margin_penalty' to `False`, then run `python train/main.py`.  
-2. Set 'arc_margin_penalty' to `True`, then run `python train/main.py`.  
+1. Set 'arc_margin_penalty'=`False`, then train with vggface2 dataset.  
+2. Set 'arc_margin_penalty'=`True`, then train with large identity dataset.  
+The training command is `python train/main.py`.  
+
 
 ## Why Do I Have To Train With 2 Steps?
 If your face dataset quality is not good, your trained model also is not good.  
@@ -74,18 +74,14 @@ On top of that, small(<=2000) face identities are sufficient to get good initial
 ```
 
 ## TODO LIST
-Do ablation strudy for stable learning on large face identity.  
 
 - [ ] *Known as `Center Loss`*, A Discriminative Feature Learning Approach for Deep Face Recognition, Y. Wen et al., ECCV 2016
 - [x] *Known as `L2 Softmax`*, L2-constrained Softmax Loss for Discriminative Face Verification, R. Ranjan et al., arXiv preprint arXiv:1703.09507 2017
-- [ ] *Known as `Proxy-NCA`*, No Fuss Distance Metric Learning using Proxies, Y. Movshovitz-Attias et al., ICCV 2017
-- [ ] Correcting the Triplet Selection Bias for Triplet Loss, B. Yu et al., ECCV 2018
 - [x] Global Norm-Aware Pooling for Pose-Robust Face Recognition at Low False Positive Rate, S. Chen et al., arXiv preprint arXiv:1808.00435 2018
 - [ ] The Devil of Face Recognition is in the Noise, F. Wang et al., ECCV 2018
 - [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
-- [ ] SoftTriple Loss: Deep Metric Learning Without Triplet Sampling, Q. Qian et al., ICCV 2019
-- [ ] *Known as `Proxy-Anchor`*, Proxy Anchor Loss for Deep Metric Learning, S. Kim et al., CVPR 2020
 - [ ] Relational Deep Feature Learning for Heterogeneous Face Recognition, M. Cho et al., IEEE 2020
+- [ ] Sub-center ArcFace: Boosting Face Recognition by Large-scale Noisy Web Faces, J. Deng et al., ECCV 2020
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)

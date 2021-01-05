@@ -123,8 +123,8 @@ def make_tfdataset(tfrecord_path, classes, batch_size, img_shape, arcface=False)
     ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     if arcface:
-        ds = ds.map(lambda img, label : ((img, label), tf.one_hot(label, classes)), num_parallel_calls=TF_AUTOTUNE)
+        ds = ds.map(lambda img, label : ((img, label), label), num_parallel_calls=TF_AUTOTUNE)
     else:
-        ds = ds.map(lambda img, label : (img, tf.one_hot(label, classes)), num_parallel_calls=TF_AUTOTUNE)
+        ds = ds.map(lambda img, label : (img, label), num_parallel_calls=TF_AUTOTUNE)
     ds = ds.prefetch(TF_AUTOTUNE)
     return ds, classes

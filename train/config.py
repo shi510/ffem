@@ -2,7 +2,7 @@ config = {
     'mixed_precision': True,
     #
     # Save trained model named with 'model_name'.h5.
-    # The best model named checkpoint + 'model_name' is saved at each epoch.
+    # The best model at each epoch is saved to the folder ./checkpoint/'model_name'.
     #
     'model_name': 'face_angular_softmax_7000',
 
@@ -19,12 +19,8 @@ config = {
     #
     'use_keras': True,
 
-    #
-    # See README.md for 'train_classifier' and 'arc_margin_penalty' args.
-    #
-    'train_classifier': True,
     'arc_margin_penalty': False,
-    'batch_size' : 192,
+    'batch_size' : 512,
     'shape' : [112, 112, 3],
 
     #
