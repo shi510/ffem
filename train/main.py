@@ -81,7 +81,7 @@ def build_model(config, num_id):
     net_outputs = []
     if config['arc_margin_penalty']:
         x2 = tf.keras.Input([])
-    y = _arccos_margin_layer(y, x2)
+        y = _arccos_margin_layer(y, x2)
         net_inputs = [x1, x2]
         net_outputs = y
     else:
