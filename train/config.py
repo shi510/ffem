@@ -29,8 +29,9 @@ config = {
     # 1. MobileNetV2
     # 2. MobileNetV3
     # 3. EfficientNetB3
+    # 4. ResNet50
     #
-    'model' : 'MobileNetV3',
+    'model' : 'ResNet50',
     'embedding_dim': 512,
 
     #
