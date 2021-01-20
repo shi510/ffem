@@ -7,8 +7,8 @@ import net_arch.models
 import train.blocks
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 import tensorflow.keras.mixed_precision as mixed_precision
-import numpy as np
 
 
 def build_dataset(config):
@@ -126,11 +126,13 @@ def build_optimizer(config):
         lr = config['lr']
 
     opt_list = {
-        'adam': 
+        'Adam': 
             tf.keras.optimizers.Adam(learning_rate=lr),
-        'sgd':
+        'SGD':
             tf.keras.optimizers.SGD(learning_rate=lr,
-                momentum=0.9, nesterov=True)
+                momentum=0.9, nesterov=True),
+        'AdamW': 
+            tfa.optimizers.AdamW(learning_rate=lr, weight_decay=1e-4),
     }
     if config['optimizer'] not in opt_list:
         print(config['optimizer'], 'is not support.')

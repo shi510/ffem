@@ -36,16 +36,16 @@ config = {
 
     #
     # There are two options.
-    #  1. adam
-    #  2. sgd with momentum=0.9 and nesterov=True
+    #  1. Adam
+    #  2. AdamW
+    #  3. SGD with momentum=0.9 and nesterov=True
     #
-    'optimizer' : 'sgd',
-    'epoch' : 10000,
+    'optimizer' : 'AdamW',
 
     #
     # initial learning rate.
     #
-    'lr' : 1e-1,
+    'lr' : 1e-4,
 
     #
     # lr * decay_rate ^ (steps / decay_steps)
