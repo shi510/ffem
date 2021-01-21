@@ -18,17 +18,19 @@ def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
-def make_tfrecord(root_path, out_file, example_json):
-    tf_file = tf.io.TFRecordWriter(out_file+'.tfrecord')
-    classes = 0
+def make_tfrecord(root_path, out_file, example_json, max_label=None):
+    tf_file = tf.io.TFRecordWriter(out_file)
+    class_max = 0
     count = 0
     for n, img_name in enumerate(example_json):
+        data = example_json[img_name]
+        if data['label'] is not None and data['label'] > max_label:
+            continue
         with open(os.path.join(root_path, img_name), 'rb') as jpeg_file:
             jpeg_bytes = jpeg_file.read()
         if jpeg_bytes is None:
             print('{} is skipped because it cannot read the file.'.format(img_name))
             continue
-        data = example_json[img_name]
         feature = {
             'jpeg': _bytes_feature(jpeg_bytes),
             'label': _int64_feature(data['label']),
@@ -40,23 +42,27 @@ def make_tfrecord(root_path, out_file, example_json):
         exam = tf.train.Example(features=tf.train.Features(feature=feature))
         tf_file.write(exam.SerializeToString())
         count = count + 1
-        if data['label'] > classes:
-            classes = data['label']
+        if data['label'] > class_max:
+            class_max = data['label']
         if n % 1000 == 0:
             print('{} images saved.'.format(n))
     tf_file.close()
     print('generating tfrecord is finished.')
     print('total number of images: {}'.format(count))
-    print('total classes: {}'.format(classes))
+    print('maximum class label : {}'.format(class_max))
+    print(' If the label starts from 0, the total classes is ', class_max + 1)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root_path', type=str,
+    parser.add_argument('--root_path', type=str, required=True,
         help='absolute path of images in json_file')
-    parser.add_argument('--json_file', type=str,
+    parser.add_argument('--json_file', type=str, required=True,
         help='examples including image relative path, label and bounding box')
-    parser.add_argument('--output', type=str,
+    parser.add_argument('--output', type=str, required=True,
+        help='tfrecord file name excluding extension')
+    parser.add_argument('--max_label', type=int, required=False,
+        default=None,
         help='tfrecord file name excluding extension')
     args = parser.parse_args()
 
@@ -66,4 +72,4 @@ if __name__ == '__main__':
     else:
         with open(args.json_file, 'r') as f:
             data = json.loads(f.read())
-        make_tfrecord(args.root_path, args.output, data)
+        make_tfrecord(args.root_path, args.output, data, args.max_label)
