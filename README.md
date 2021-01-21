@@ -75,11 +75,12 @@ On top of that, small(<=2000) face identities are sufficient to get good initial
 
 ## TODO LIST
 
-- [ ] *Known as `Center Loss`*, A Discriminative Feature Learning Approach for Deep Face Recognition, Y. Wen et al., ECCV 2016
+- [x] *Known as `Center Loss`*, A Discriminative Feature Learning Approach for Deep Face Recognition, Y. Wen et al., ECCV 2016
 - [x] *Known as `L2 Softmax`*, L2-constrained Softmax Loss for Discriminative Face Verification, R. Ranjan et al., arXiv preprint arXiv:1703.09507 2017
 - [x] Global Norm-Aware Pooling for Pose-Robust Face Recognition at Low False Positive Rate, S. Chen et al., arXiv preprint arXiv:1808.00435 2018
 - [ ] The Devil of Face Recognition is in the Noise, F. Wang et al., ECCV 2018
 - [ ] Co-Mining: Deep Face Recognition with Noisy Labels, X. Wang et al., ICCV 2019
+- [x] ArcFace: Additive Angular Margin Loss for Deep Face Recognition, J. Deng et al., CVPR 2019
 - [ ] Relational Deep Feature Learning for Heterogeneous Face Recognition, M. Cho et al., IEEE 2020
 - [ ] Sub-center ArcFace: Boosting Face Recognition by Large-scale Noisy Web Faces, J. Deng et al., ECCV 2020
 
