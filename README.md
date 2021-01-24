@@ -34,7 +34,7 @@ Input pipeline bottleneck increases training time.
 Reading data from a large file sequentially is better than reading a lot of small sized data randomly.  
 Try the command below, it generates [name].tfrecord file from the above json file.  
 ```
-python generate_tfrecord/main.py --root_path [path] --json_file [path] --output [name]
+python generate_tfrecord/main.py --root_path [path] --json_file [path] --output [name].tfrecord
 ```
 
 ## Common Settings
@@ -42,8 +42,8 @@ Execute the command `export PYTHONPATH=$(pwd)` first.
 Set 'tfrecord_file' and 'num_identity' in `train/config.py`.  
 
 ## Recommendation Steps for Training.
-1. Set 'arc_margin_penalty'=`False`, then train with vggface2 dataset.  
-2. Set 'arc_margin_penalty'=`True`, then train with large identity dataset.  
+1. Set 'loss'=`CenterSoftmax` or `ProxySoftmax`, then train with vggface2 dataset.  
+2. Set 'loss'=`AddictiveMargin`, then train with large identity dataset.  
 The training command is `python train/main.py`.  
 
 
@@ -55,22 +55,22 @@ So the quality of the dataset is not good, we should fine-tune a model from pret
 There are good face dataset, for example, vggface2 dataset that has 300+ average images per identity.  
 Consequently you have to train with 2 steps.  
 The training steps is described below.  
-On top of that, small(<=2000) face identities are sufficient to get good initialization when you are training the first step.  
+On top of that, small(<=2000) face identities are sufficient to get good initialization when you train the first step.  
 
 ## Training Conditions
 ```
 1. Train MobiletNetV3 architecture from scratch as details below:
- - L2-constrained softmax with 30 scale factor
+ - CenterSoftmax Loss or ProxySoftmax Loss
  - ReLU6 activation (Default in this repository)
  - ADAM optimizer with 1e-4 learning rate
  - 50 epochs
- - VGGFACE2 dataset with 2K identities
+ - VGGFACE2 dataset with 4K identities (labels ranges in 0~4000)
 
 2. Train the above pretrained model as details below:
- - additive angular margin loss, 0.5 margin and 60 scale factor
+ - AddictiveMargin Loss
  - SGD momentum nesterov optimizer with 1e-3 learning rate
  - 10~15 epochs
- - trillion pairs dataset with large identities
+ - trillion pairs dataset with large identities (about 90K identities)
 ```
 
 ## TODO LIST
