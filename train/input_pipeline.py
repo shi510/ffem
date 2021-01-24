@@ -1,10 +1,5 @@
-import os
-
-import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
-
-import train.utils as utils
 
 
 TF_AUTOTUNE = tf.data.AUTOTUNE
@@ -51,8 +46,9 @@ def cutout(x : tf.Tensor):
     return tf.cond(choice > 0.5, lambda: _cutout(x), lambda: x)
 
 
-def make_tfdataset(tfrecord_path, classes, batch_size, img_shape, arcface=False):
-    ds = tf.data.TFRecordDataset(tfrecord_path)
+def make_tfdataset(train_tfrecord, test_tfrecord, batch_size, img_shape):
+    train_ds = tf.data.TFRecordDataset(train_tfrecord)
+    test_ds = tf.data.TFRecordDataset(test_tfrecord)
 
     def _read_tfrecord(serialized):
         description = {
@@ -109,22 +105,27 @@ def make_tfdataset(tfrecord_path, classes, batch_size, img_shape, arcface=False)
         # Normalize images to the range [0, 1].
         return x / 255.
 
-    ds = ds.map(_read_tfrecord)
-    ds = ds.shuffle(10000)
-    ds = ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(_random_crop, num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.batch(batch_size)
-    ds = ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
+    train_ds = train_ds.map(_read_tfrecord)
+    train_ds = train_ds.shuffle(10000)
+    train_ds = train_ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
+    train_ds = train_ds.map(_random_crop, num_parallel_calls=TF_AUTOTUNE)
+    train_ds = train_ds.batch(batch_size)
+    train_ds = train_ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
     augmentations = [random_flip, random_color]
     for f in augmentations:
         choice = tf.random.uniform([], 0.0, 1.0)
-        ds = ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
+        train_ds = train_ds.map(lambda x, label: (tf.cond(choice > 0.5, lambda: f(x), lambda: x), label),
             num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
-    if arcface:
-        ds = ds.map(lambda img, label : ((img, label), label), num_parallel_calls=TF_AUTOTUNE)
-    else:
-        ds = ds.map(lambda img, label : (img, label), num_parallel_calls=TF_AUTOTUNE)
-    ds = ds.prefetch(TF_AUTOTUNE)
-    return ds, classes
+    train_ds = train_ds.map(lambda x, label: (tf.clip_by_value(x, 0., 1.), label), num_parallel_calls=TF_AUTOTUNE)
+    train_ds = train_ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
+    train_ds = train_ds.prefetch(TF_AUTOTUNE)
+
+    test_ds = test_ds.map(_read_tfrecord)
+    test_ds = test_ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
+    test_ds = test_ds.map(
+        lambda x, label, box: (tf.image.crop_and_resize([x], [box], [0], img_shape)[0], label),
+        num_parallel_calls=TF_AUTOTUNE)
+    test_ds = test_ds.batch(batch_size)
+    test_ds = test_ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
+
+    return train_ds, test_ds

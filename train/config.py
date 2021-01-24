@@ -1,10 +1,10 @@
 config = {
-    'mixed_precision': True,
+    'mixed_precision': False,
     #
     # Save trained model named with 'model_name'.h5.
     # The best model at each epoch is saved to the folder ./checkpoint/'model_name'.
     #
-    'model_name': 'face_angular_softmax_7000',
+    'model_name': 'ResNet50_centerloss_yourdataset_4000',
 
     #
     # Restore trained weights.
@@ -13,14 +13,7 @@ config = {
     #
     'saved_model': '',
 
-    #
-    # Which do you want to execute with Keras or Eager Mode?
-    # Eager mode is for debugging.
-    #
-    'use_keras': True,
-
-    'arc_margin_penalty': False,
-    'batch_size' : 512,
+    'batch_size' : 256,
     'shape' : [112, 112, 3],
 
     #
@@ -35,12 +28,36 @@ config = {
     'embedding_dim': 512,
 
     #
+    # 1. CenterSoftmax (known as Center Loss)
+    # 2. ProxySoftmax (Softmax with ProxyNCA)
+    # 3. AddictiveMargin (known as ArcFace)
+    #
+    'loss': 'CenterSoftmax',
+    'loss_param':{
+        'CenterSoftmax':{
+            'scale': 30,
+            'center_lr': 1e-2,
+            'center_weight': 1e-3,
+        },
+        'ProxySoftmax':{
+            'scale': 30,
+            'proxy_lr': 1e-2,
+            'proxy_weight': 1e-3,
+        },
+        'AddictiveMargin':{
+            'scale': 30,
+            'margin': 0.5
+        }
+    },
+
+    #
     # There are two options.
     #  1. Adam
     #  2. AdamW
     #  3. SGD with momentum=0.9 and nesterov=True
     #
     'optimizer' : 'AdamW',
+    'epoch' : 40,
 
     #
     # initial learning rate.
@@ -51,18 +68,19 @@ config = {
     # lr * decay_rate ^ (steps / decay_steps)
     #
     'lr_decay': False,
-    'lr_decay_steps' : 25000,
-    'lr_decay_rate' : 0.96,
+    'lr_decay_steps' : 10000,
+    'lr_decay_rate' : 0.9,
 
 
     #
     # training dataset generated from generate_tfrecord/main.py
     # See README.md
     #
-    'tfrecord_file': 'your.tfrecord',
- 
+    'train_file': 'your_train.tfrecord',
+    'test_file': 'your_test.tfrecord',
+
     #
     # Set maximum face ID in 'tfrecord_file'.
     #
-    'num_identity': 2000
+    'num_identity': 4000
 }

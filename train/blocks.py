@@ -1,20 +1,5 @@
 import tensorflow as tf
 
-import net_arch.logit_fn.margin_logit as margin_logit
-
-
-def attach_arc_margin_penalty(
-    x : tf.Tensor,
-    label : tf.Tensor,
-    classes : int,
-    scale=30):
-    out = x
-    out = margin_logit.ArcMarginPenaltyLogists(
-        classes,
-        scale,
-        name='arc_margin')(out, label)
-    return out
-
 
 def attach_GNAP(x : tf.Tensor):
     out = x
