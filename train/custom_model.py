@@ -7,10 +7,10 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 
-class SoftmaxModel(tf.keras.Model):
+class CenterSoftmaxModel(tf.keras.Model):
 
     def __init__(self, n_embeddings, n_classes, center_weight=1e-3, center_lr=1e-3, scale=30, **kwargs):
-        super(SoftmaxModel, self).__init__(**kwargs)
+        super(CenterSoftmaxModel, self).__init__(**kwargs)
         self.n_embeddings = n_embeddings
         self.n_classes = n_classes
         self.center_lr = center_lr
@@ -22,7 +22,7 @@ class SoftmaxModel(tf.keras.Model):
         self.loss_tracker_center = tf.keras.metrics.Mean(name='center_loss')
 
     def compile(self, optimizer, **kwargs):
-        super(SoftmaxModel, self).compile(**kwargs)
+        super(CenterSoftmaxModel, self).compile(**kwargs)
         self.optimizer = optimizer
         self.optimizer_center = tfa.optimizers.AdamW(learning_rate=self.center_lr, weight_decay=1e-4)
 

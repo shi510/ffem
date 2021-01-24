@@ -9,7 +9,7 @@ from train.callbacks import RecallCallback
 import net_arch.models
 import train.blocks
 from train.utils import pairwise_distance
-from train.custom_model import ArcFaceModel, SoftmaxModel, ProxyModel
+from train.custom_model import ArcFaceModel, CenterSoftmaxModel, ProxyModel
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -61,7 +61,7 @@ def build_model(config):
     loss_param['n_embeddings'] = config['embedding_dim']
     loss_param['n_classes'] = config['num_identity']
     if config['loss'] == 'CenterSoftmax':
-        return SoftmaxModel(inputs=x1, outputs=y, **loss_param)
+        return CenterSoftmaxModel(inputs=x1, outputs=y, **loss_param)
     elif config['loss'] == 'ProxySoftmax':
         return ProxyModel(inputs=x1, outputs=y, **loss_param)
     elif config['loss'] == 'AddictiveMargin':
