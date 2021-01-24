@@ -51,3 +51,33 @@ class SoftmaxModel(tf.keras.Model):
     def metrics(self):
         return [self.loss_tracker, self.loss_tracker_softmax, self.loss_tracker_center]
 
+
+
+class ArcFaceModel(tf.keras.Model):
+
+    def __init__(self, n_embeddings, n_classes, margin=0.5, scale=30, **kwargs):
+        super(ArcFaceModel, self).__init__(**kwargs)
+        self.n_embeddings = n_embeddings
+        self.n_classes = n_classes
+        self.margin_loss = AddictiveMarginLoss(n_embeddings, n_classes, margin, scale)
+        self.loss_tracker = tf.keras.metrics.Mean(name='loss')
+
+    def compile(self, optimizer, **kwargs):
+        super(ArcFaceModel, self).compile(**kwargs)
+        self.optimizer = optimizer
+
+    def train_step(self, data):
+        x, y_true = data
+        with tf.GradientTape() as tape:
+            y_pred = self(x, training=True)
+            total_loss = self.margin_loss(y_true, y_pred)
+        trainable_vars = self.trainable_weights
+        trainable_vars += self.margin_loss.trainable_weights
+        grads = tape.gradient(total_loss, trainable_vars)
+        self.optimizer.apply_gradients(zip(grads, trainable_vars))
+        self.loss_tracker.update_state(total_loss)
+        return {'loss': self.loss_tracker.result()}
+
+    @property
+    def metrics(self):
+        return [self.loss_tracker]
