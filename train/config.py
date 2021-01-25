@@ -76,8 +76,7 @@ config = {
     # training dataset generated from generate_tfrecord/main.py
     # See README.md
     #
-    'train_file': 'your_train.tfrecord',
-    'test_file': 'your_test.tfrecord',
+    'test_files': ['your_test.tfrecord'],
 
     #
     # Set maximum face ID in 'tfrecord_file'.

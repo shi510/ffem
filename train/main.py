@@ -17,12 +17,12 @@ import tensorflow.keras.mixed_precision as mixed_precision
 
 
 def build_dataset(config):
-    train_ds, test_ds = input_pipeline.make_tfdataset(
+    train_ds, test_ds_dict = input_pipeline.make_tfdataset(
         config['train_file'],
-        config['test_file'],
+        config['test_files'],
         config['batch_size'],
         config['shape'][:2])
-    return train_ds, test_ds
+    return train_ds, test_ds_dict
 
 
 def build_backbone_model(config):
@@ -68,10 +68,13 @@ def build_model(config):
         return ArcFaceModel(inputs=x1, outputs=y, **loss_param)
 
 
-def build_callbacks(config, test_ds):
+def build_callbacks(config, test_ds_dict):
     log_dir = os.path.join('logs', config['model_name'])
     callback_list = []
-    recall_eval = RecallCallback(test_ds, [1], pairwise_distance, log_dir)
+    metric_fn = pairwise_distance
+    if config['loss'] == 'AddictiveMargin':
+        metric_fn = lambda A, B: tf.matmul(A, tf.transpose(B))
+    recall_eval = RecallCallback(test_ds_dict, [1], metric_fn, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='recall@1', factor=0.1, mode='max',
         patience=1, min_lr=1e-4)
@@ -156,14 +159,14 @@ if __name__ == '__main__':
         print('---------------- Enabled Mixed Precision ----------------')
         policy = mixed_precision.Policy('mixed_float16')
         mixed_precision.set_global_policy(policy)
-    train_ds, test_ds = build_dataset(config)
+    train_ds, test_ds_dict = build_dataset(config)
     net = build_model(config)
     opt = build_optimizer(config)
     net.summary()
     net.compile(optimizer=opt)
     net.fit(train_ds, epochs=config['epoch'], verbose=1,
         workers=input_pipeline.TF_AUTOTUNE,
-        callbacks=build_callbacks(config, test_ds))
+        callbacks=build_callbacks(config, test_ds_dict))
     net = remove_subclassing_keras_model(net)
     net.save('{}.h5'.format(config['model_name']), include_optimizer=False)
 

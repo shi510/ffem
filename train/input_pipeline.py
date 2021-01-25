@@ -48,7 +48,6 @@ def cutout(x : tf.Tensor):
 
 def make_tfdataset(train_tfrecord, test_tfrecord, batch_size, img_shape):
     train_ds = tf.data.TFRecordDataset(train_tfrecord)
-    test_ds = tf.data.TFRecordDataset(test_tfrecord)
 
     def _read_tfrecord(serialized):
         description = {
@@ -120,12 +119,16 @@ def make_tfdataset(train_tfrecord, test_tfrecord, batch_size, img_shape):
     train_ds = train_ds.map(lambda x, label: (cutout(x), label), num_parallel_calls=TF_AUTOTUNE)
     train_ds = train_ds.prefetch(TF_AUTOTUNE)
 
-    test_ds = test_ds.map(_read_tfrecord)
-    test_ds = test_ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
-    test_ds = test_ds.map(
-        lambda x, label, box: (tf.image.crop_and_resize([x], [box], [0], img_shape)[0], label),
-        num_parallel_calls=TF_AUTOTUNE)
-    test_ds = test_ds.batch(batch_size)
-    test_ds = test_ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
+    test_ds_dict = {}
+    for test_file in test_tfrecord:
+        test_ds = tf.data.TFRecordDataset(test_file)
+        test_ds = test_ds.map(_read_tfrecord)
+        test_ds = test_ds.map(_load_and_preprocess_image, num_parallel_calls=TF_AUTOTUNE)
+        test_ds = test_ds.map(
+            lambda x, label, box: (tf.image.crop_and_resize([x], [box], [0], img_shape)[0], label),
+            num_parallel_calls=TF_AUTOTUNE)
+        test_ds = test_ds.batch(batch_size)
+        test_ds = test_ds.map(lambda img, label : (_normalize(img), label), num_parallel_calls=TF_AUTOTUNE)
+        test_ds_dict[test_file] = test_ds
 
-    return train_ds, test_ds
+    return train_ds, test_ds_dict

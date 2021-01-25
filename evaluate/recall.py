@@ -14,12 +14,15 @@ def calc_top_k_label(dist, label, top_k, largest=True):
     return top_k_label
 
 
-def evaluate(model, dataset, metric_fn, top_k: list, batch_size=256):
+def evaluate(model, dataset, metric_fn, top_k: list, batch_size=256, norm=True):
     X = []
     Y = []
     # extract all embeddings in dataset.
     for batch_x, batch_y in dataset:
-        batch_pred = model(batch_x).numpy()
+        batch_pred = model(batch_x)
+        if norm:
+            batch_pred = tf.math.l2_normalize(batch_pred, axis=1)
+        batch_pred = batch_pred.numpy()
         for x, y in zip(batch_pred, batch_y):
             X.append(x)
             Y.append(y)
