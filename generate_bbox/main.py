@@ -1,8 +1,9 @@
 import argparse
 import os
 
-import trillion_pairs
-import vggface
+import generate_bbox.trillion_pairs as trillion_pairs
+import generate_bbox.vggface as vggface
+import generate_bbox.rfw as rfw
 
 
 parser = argparse.ArgumentParser()
@@ -13,9 +14,9 @@ trillon_parser.add_argument('--output')
 vggface_parser = sub_parser.add_parser('vggface')
 vggface_parser.add_argument('--lndmk')
 vggface_parser.add_argument('--output')
-# rfw_parser = sub_parser.add_parser('rfw')
-# rfw_parser.add_argument('--race_list')
-# rfw_parser.add_argument('--output')
+rfw_parser = sub_parser.add_parser('rfw')
+rfw_parser.add_argument('--lndmk')
+rfw_parser.add_argument('--output')
 
 
 if __name__ == '__main__':
@@ -31,5 +32,8 @@ if __name__ == '__main__':
             vggface.save_bbox_to_json(args.lndmk, args.output)
         else:
             print('{} not exists.'.format(args.lndmk))
-    # elif args.cmd == 'rfw':
-        # print('Not suppport currently.')
+    elif args.cmd == 'rfw':
+        if os.path.isfile(args.lndmk):
+            rfw.save_bbox_to_json(args.lndmk, args.output)
+        else:
+            print('{} not exists.'.format(args.lndmk))
