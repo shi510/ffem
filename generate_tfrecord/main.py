@@ -24,7 +24,7 @@ def make_tfrecord(root_path, out_file, example_json, max_label=None):
     count = 0
     for n, img_name in enumerate(example_json):
         data = example_json[img_name]
-        if data['label'] is not None and data['label'] > max_label:
+        if max_label is not None and data['label'] > max_label:
             continue
         with open(os.path.join(root_path, img_name), 'rb') as jpeg_file:
             jpeg_bytes = jpeg_file.read()
@@ -66,10 +66,7 @@ if __name__ == '__main__':
         help='tfrecord file name excluding extension')
     args = parser.parse_args()
 
-    # all arguments must not be empty.
-    if None in vars(args).values():
-        parser.print_help()
-    else:
-        with open(args.json_file, 'r') as f:
-            data = json.loads(f.read())
-        make_tfrecord(args.root_path, args.output, data, args.max_label)
+
+    with open(args.json_file, 'r') as f:
+        data = json.loads(f.read())
+    make_tfrecord(args.root_path, args.output, data, args.max_label)
