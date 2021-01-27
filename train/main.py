@@ -163,8 +163,8 @@ if __name__ == '__main__':
     net.summary()
     net.compile(optimizer=opt)
     try:
-        net.fit(train_ds.take(5), epochs=config['epoch'], verbose=1,
-        workers=input_pipeline.TF_AUTOTUNE,
+        net.fit(train_ds, epochs=config['epoch'], verbose=1,
+            workers=input_pipeline.TF_AUTOTUNE,
             callbacks=callbacks)
     except KeyboardInterrupt as e:
         print('--')
