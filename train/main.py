@@ -8,7 +8,6 @@ from train.callbacks import LogCallback
 from train.callbacks import RecallCallback
 import net_arch.models
 import train.blocks
-from train.utils import pairwise_distance
 from train.custom_model import ArcFaceModel, CenterSoftmaxModel, ProxyModel
 
 import tensorflow as tf
@@ -71,10 +70,8 @@ def build_model(config):
 def build_callbacks(config, test_ds_dict):
     log_dir = os.path.join('logs', config['model_name'])
     callback_list = []
-    metric_fn = pairwise_distance
-    if config['loss'] == 'AddictiveMargin':
-        metric_fn = lambda A, B: tf.matmul(A, tf.transpose(B))
-    recall_eval = RecallCallback(test_ds_dict, [1], metric_fn, log_dir)
+    metric = config['loss_param'][config['loss']]['metric']
+    recall_eval = RecallCallback(test_ds_dict, [1], metric, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='recall@1', factor=0.1, mode='max',
         patience=1, min_lr=1e-4)
@@ -96,7 +93,7 @@ def build_callbacks(config, test_ds_dict):
     callback_list.append(early_stop)
     if not config['lr_decay']:
         callback_list.append(reduce_lr)
-    return callback_list
+    return callback_list, early_stop
 
 
 def build_optimizer(config):
@@ -162,11 +159,20 @@ if __name__ == '__main__':
     train_ds, test_ds_dict = build_dataset(config)
     net = build_model(config)
     opt = build_optimizer(config)
+    callbacks, early_stop = build_callbacks(config, test_ds_dict)
     net.summary()
     net.compile(optimizer=opt)
-    net.fit(train_ds, epochs=config['epoch'], verbose=1,
+    try:
+        net.fit(train_ds.take(5), epochs=config['epoch'], verbose=1,
         workers=input_pipeline.TF_AUTOTUNE,
-        callbacks=build_callbacks(config, test_ds_dict))
+            callbacks=callbacks)
+    except KeyboardInterrupt as e:
+        print('--')
+        if early_stop.best_weights is None:
+            print('Training canceled, but weights can not be restored because the best model is not available.')
+        else:
+            print('Training canceled and weights are restored from the best')
+            net.set_weights(early_stop.best_weights)
     net = remove_subclassing_keras_model(net)
     net.save('{}.h5'.format(config['model_name']), include_optimizer=False)
 

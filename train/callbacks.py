@@ -23,11 +23,11 @@ class LogCallback(tf.keras.callbacks.Callback):
 
 class RecallCallback(tf.keras.callbacks.Callback):
 
-    def __init__(self, dataset_dict, top_k, metric_fn, log_dir='logs'):
+    def __init__(self, dataset_dict, top_k, metric, log_dir='logs'):
         super(RecallCallback, self).__init__()
         self.ds_dict = dataset_dict
         self.top_k = top_k
-        self.metric_fn = metric_fn
+        self.metric = metric
         self.log_dir = log_dir
         self.writer = tf.summary.create_file_writer(self.log_dir)
 
@@ -43,7 +43,7 @@ class RecallCallback(tf.keras.callbacks.Callback):
         # Evaluate recall over multiple datasets
         for ds_name in self.ds_dict:
             ds = self.ds_dict[ds_name]
-            recall_top_k = recall.evaluate(self.model, ds, self.metric_fn, self.top_k, 256)
+            recall_top_k = recall.evaluate(self.model, ds, self.metric, self.top_k, 256)
             with self.writer.as_default():
                 for k, value in zip(self.top_k, recall_top_k):
                     recall_str = 'recall@{}'.format(k)
