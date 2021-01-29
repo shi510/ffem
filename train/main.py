@@ -8,7 +8,10 @@ from train.callbacks import LogCallback
 from train.callbacks import RecallCallback
 import net_arch.models
 import train.blocks
-from train.custom_model import ArcFaceModel, CenterSoftmaxModel, ProxyModel
+from train.custom_model import ArcFaceModel
+from train.custom_model import CenterSoftmaxModel
+from train.custom_model import ProxyModel
+from train.custom_model import ProxyAnchorModel
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -25,7 +28,7 @@ def build_dataset(config):
 
 
 def build_backbone_model(config):
-
+    is_pretrained = False
     if os.path.exists(config['saved_model']):
         net = tf.keras.models.load_model(config['saved_model'])
         if os.path.isdir(config['saved_model']):
@@ -33,18 +36,20 @@ def build_backbone_model(config):
         print('')
         print('******************** Loaded saved weights ********************')
         print('')
+        is_pretrained = True
     elif len(config['saved_model']) != 0:
         print(config['saved_model'] + ' can not open.')
         exit(1)
     else :
         net = net_arch.models.get_model(config['model'], config['shape'])
 
-    return net
+    return net, is_pretrained
 
 
 def build_model(config):
     y = x1 = tf.keras.Input(config['shape'])
-    y = build_backbone_model(config)(y)
+    net, is_pretrained = build_backbone_model(config)
+    y = net(y)
 
     def _embedding_layer(feature):
         y = x = tf.keras.Input(feature.shape[1:])
@@ -54,7 +59,7 @@ def build_model(config):
         y = train.blocks.attach_embedding_projection(y, config['embedding_dim'])
         return tf.keras.Model(x, y, name='embeddings')(feature)
 
-
+    if not is_pretrained:
     y = _embedding_layer(y)
     loss_param = copy.deepcopy(config['loss_param'][config['loss']])
     loss_param['n_embeddings'] = config['embedding_dim']
@@ -70,8 +75,9 @@ def build_model(config):
 def build_callbacks(config, test_ds_dict):
     log_dir = os.path.join('logs', config['model_name'])
     callback_list = []
-    metric = config['loss_param'][config['loss']]['metric']
-    recall_eval = RecallCallback(test_ds_dict, [1], metric, log_dir)
+    metric = config['eval']['metric']
+    recall_topk = config['eval']['recall']
+    recall_eval = RecallCallback(test_ds_dict, recall_topk, metric, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='recall@1', factor=0.1, mode='max',
         patience=1, min_lr=1e-4)

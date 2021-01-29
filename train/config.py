@@ -50,6 +50,11 @@ config = {
         }
     },
 
+    'eval':{
+        'metric': 'cos',
+        'recall': [1]
+    },
+
     #
     # There are two options.
     #  1. Adam
