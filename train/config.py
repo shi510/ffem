@@ -76,6 +76,7 @@ config = {
     # training dataset generated from generate_tfrecord/main.py
     # See README.md
     #
+    'train_file': 'your_train.tfrecord',
     'test_files': ['your_test.tfrecord'],
 
     #
