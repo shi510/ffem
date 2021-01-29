@@ -60,7 +60,7 @@ def build_model(config):
         return tf.keras.Model(x, y, name='embeddings')(feature)
 
     if not is_pretrained:
-    y = _embedding_layer(y)
+        y = _embedding_layer(y)
     loss_param = copy.deepcopy(config['loss_param'][config['loss']])
     loss_param['n_embeddings'] = config['embedding_dim']
     loss_param['n_classes'] = config['num_identity']
