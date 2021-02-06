@@ -10,7 +10,7 @@ import net_arch.models
 import train.blocks
 from train.custom_model import AdditiveAngularMarginModel
 from train.custom_model import CenterSoftmaxModel
-from train.custom_model import ProxyModel
+from train.custom_model import ProxyNCAModel
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -65,8 +65,8 @@ def build_model(config):
     loss_param['n_classes'] = config['num_identity']
     if config['loss'] == 'CenterSoftmax':
         return CenterSoftmaxModel(inputs=x1, outputs=y, **loss_param)
-    elif config['loss'] == 'ProxySoftmax':
-        return ProxyModel(inputs=x1, outputs=y, **loss_param)
+    elif config['loss'] == 'ProxyNCA':
+        return ProxyNCAModel(inputs=x1, outputs=y, **loss_param)
     elif config['loss'] == 'AdditiveAngularMargin':
         return AdditiveAngularMarginModel(inputs=x1, outputs=y, **loss_param)
 

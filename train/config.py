@@ -29,7 +29,7 @@ config = {
 
     #
     # 1. CenterSoftmax (known as Center Loss)
-    # 2. ProxySoftmax (Softmax with ProxyNCA)
+    # 2. ProxyNCA
     # 3. AdditiveAngularMargin (known as ArcFace)
     #
     'loss': 'CenterSoftmax',
@@ -39,10 +39,9 @@ config = {
             'center_lr': 1e-2,
             'center_weight': 1e-3,
         },
-        'ProxySoftmax':{
+        'ProxyNCA':{
             'scale': 30,
-            'proxy_lr': 1e-2,
-            'proxy_weight': 1e-3,
+            'proxy_lr': 1e-2
         },
         'AdditiveAngularMargin':{
             'scale': 30,
