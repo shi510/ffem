@@ -1,5 +1,3 @@
-from train.utils import pairwise_distance
-
 import tensorflow as tf
 
 """
@@ -26,8 +24,7 @@ class ProxyNCALoss:
         onehot = tf.one_hot(y_true, self.n_classes, True, False)
         norm_x = tf.math.l2_normalize(y_pred, axis=1)
         norm_p = tf.math.l2_normalize(self.proxies, axis=1)
-        dist = pairwise_distance(norm_x, norm_p) * self.scale
-        dist = -1 * tf.maximum(dist, 0.)
+        dist = tf.matmul(norm_x, tf.transpose(norm_p)) * self.scale
         # for numerical stability,
         # all distances is substracted by its maximum value before exponentiating.
         dist = dist - tf.math.reduce_max(dist, axis=1, keepdims=True)
