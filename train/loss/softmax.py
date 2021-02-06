@@ -1,10 +1,9 @@
 import tensorflow as tf
 
 
-class SoftmaxLoss(tf.keras.losses.Loss):
+class SoftmaxLoss:
 
-    def __init__(self, n_embedding, n_classes, scale=30, **kwargs):
-        super(SoftmaxLoss, self).__init__(**kwargs)
+    def __init__(self, n_embedding, n_classes, scale=30):
         self.n_classes = n_classes
         self.scale = scale
         initializer = tf.keras.initializers.GlorotUniform()
@@ -15,7 +14,7 @@ class SoftmaxLoss(tf.keras.losses.Loss):
             self.weights = tf.cast(self.weights, dtype=tf.float16)
         self.trainable_weights = [self.weights]
 
-    def call(self, y_true, y_pred):
+    def __call__(self, y_true, y_pred):
         norm_x = tf.math.l2_normalize(y_pred, axis=1)
         norm_w = tf.math.l2_normalize(self.weights, axis=0)
         dist = tf.matmul(norm_x, norm_w) * self.scale

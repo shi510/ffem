@@ -6,10 +6,9 @@ All the code below is referenced from :
 https://github.com/peteryuX/arcface-tf2
 """
 
-class AddictiveMarginLoss(tf.keras.losses.Loss):
+class AddictiveMarginLoss:
 
-    def __init__(self, n_embeddings, n_classes, margin=0.5, scale=30, **kwargs):
-        super(AddictiveMarginLoss, self).__init__(**kwargs)
+    def __init__(self, n_embeddings, n_classes, margin=0.5, scale=30):
         self.n_embeddings = n_embeddings
         self.n_classes = n_classes
         self.margin = margin
@@ -27,7 +26,7 @@ class AddictiveMarginLoss(tf.keras.losses.Loss):
             self.sin_m = tf.cast(self.sin_m, dtype=tf.float16)
         self.trainable_weights = [self.weights]
 
-    def call(self, y_true, y_pred):
+    def __call__(self, y_true, y_pred):
         normed_x = tf.nn.l2_normalize(y_pred, axis=1)
         normed_w = tf.nn.l2_normalize(self.weights, axis=0)
 

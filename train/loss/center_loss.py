@@ -3,10 +3,9 @@ from train.utils import pairwise_distance
 import tensorflow as tf
 
 
-class CenterLoss(tf.keras.losses.Loss):
+class CenterLoss:
 
-    def __init__(self, n_embedding, n_classes, scale=30, **kwargs):
-        super(CenterLoss, self).__init__(**kwargs)
+    def __init__(self, n_embedding, n_classes, scale=30):
         self.n_classes = n_classes
         self.scale = scale
         initializer = tf.keras.initializers.RandomNormal(0., 0.1)
@@ -17,7 +16,7 @@ class CenterLoss(tf.keras.losses.Loss):
             self.centers = tf.cast(self.centers, dtype=tf.float16)
         self.trainable_weights = [self.centers]
 
-    def call(self, y_true, y_pred):
+    def __call__(self, y_true, y_pred):
         batch_size = tf.shape(y_true)[0]
         onehot = tf.one_hot(y_true, self.n_classes, True, False)
         norm_x = tf.math.l2_normalize(y_pred, axis=1)

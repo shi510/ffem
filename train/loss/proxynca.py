@@ -7,10 +7,9 @@ All the code below is referenced from :
 https://github.com/dichotomies/proxy-nca
 """
 
-class ProxyNCALoss(tf.keras.losses.Loss):
+class ProxyNCALoss:
 
-    def __init__(self, n_embedding, n_classes, scale, **kwargs):
-        super(ProxyNCALoss, self).__init__(**kwargs)
+    def __init__(self, n_embedding, n_classes, scale):
         self.n_classes = n_classes
         self.scale = scale
         self.initializer = tf.keras.initializers.Orthogonal(1/8)
@@ -20,7 +19,7 @@ class ProxyNCALoss(tf.keras.losses.Loss):
         self.trainable_weights = [self.proxies]
 
 
-    def call(self, y_true, y_pred):
+    def __call__(self, y_true, y_pred):
         """
         This implementation excludes a positive proxy from denominator.
         """
