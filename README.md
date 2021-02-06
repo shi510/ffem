@@ -43,7 +43,7 @@ Set 'tfrecord_file' and 'num_identity' in `train/config.py`.
 
 ## Recommendation Steps for Training.
 1. Set 'loss'=`CenterSoftmax` or `ProxySoftmax`, then train with vggface2 dataset.  
-2. Set 'loss'=`AddictiveMargin`, then train with large identity dataset.  
+2. Set 'loss'=`AdditiveMargin`, then train with large identity dataset.  
 The training command is `python train/main.py`.  
 
 
@@ -60,14 +60,14 @@ On top of that, small(<=2000) face identities are sufficient to get good initial
 ## Training Conditions
 ```
 1. Train MobiletNetV3 architecture from scratch as details below:
- - CenterSoftmax Loss or ProxySoftmax Loss
+ - AdditiveAngularMargin Loss
  - ReLU6 activation (Default in this repository)
  - ADAM optimizer with 1e-4 learning rate
  - 50 epochs
  - VGGFACE2 dataset with 4K identities (labels ranges in 0~4000)
 
 2. Train the above pretrained model as details below:
- - AddictiveMargin Loss
+ - AdditiveAngularMargin Loss
  - SGD momentum nesterov optimizer with 1e-3 learning rate
  - 10~15 epochs
  - trillion pairs dataset with large identities (about 90K identities)
