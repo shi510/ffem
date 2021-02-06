@@ -8,10 +8,9 @@ from train.callbacks import LogCallback
 from train.callbacks import RecallCallback
 import net_arch.models
 import train.blocks
-from train.custom_model import ArcFaceModel
+from train.custom_model import AdditiveAngularMarginModel
 from train.custom_model import CenterSoftmaxModel
 from train.custom_model import ProxyModel
-from train.custom_model import ProxyAnchorModel
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -68,8 +67,8 @@ def build_model(config):
         return CenterSoftmaxModel(inputs=x1, outputs=y, **loss_param)
     elif config['loss'] == 'ProxySoftmax':
         return ProxyModel(inputs=x1, outputs=y, **loss_param)
-    elif config['loss'] == 'AddictiveMargin':
-        return ArcFaceModel(inputs=x1, outputs=y, **loss_param)
+    elif config['loss'] == 'AdditiveAngularMargin':
+        return AdditiveAngularMarginModel(inputs=x1, outputs=y, **loss_param)
 
 
 def build_callbacks(config, test_ds_dict):

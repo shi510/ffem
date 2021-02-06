@@ -1,7 +1,7 @@
 from train.loss.proxynca import ProxyNCALoss
 from train.loss.softmax import SoftmaxLoss
 from train.loss.center_loss import CenterLoss
-from train.loss.addictive_margin_loss import AddictiveMarginLoss
+from train.loss.additive_angular_margin_loss import AdditiveAngularMarginLoss
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -99,17 +99,17 @@ class ProxyModel(tf.keras.Model):
         return [self.loss_tracker, self.loss_tracker_softmax, self.loss_tracker_proxy]
 
 
-class ArcFaceModel(tf.keras.Model):
+class AdditiveAngularMarginModel(tf.keras.Model):
 
     def __init__(self, n_embeddings, n_classes, margin=0.5, scale=30, **kwargs):
-        super(ArcFaceModel, self).__init__(**kwargs)
+        super(AdditiveAngularMarginModel, self).__init__(**kwargs)
         self.n_embeddings = n_embeddings
         self.n_classes = n_classes
         self.margin_loss = AddictiveMarginLoss(n_embeddings, n_classes, margin, scale)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
     def compile(self, optimizer, **kwargs):
-        super(ArcFaceModel, self).compile(**kwargs)
+        super(AdditiveAngularMarginModel, self).compile(**kwargs)
         self.optimizer = optimizer
 
     def train_step(self, data):

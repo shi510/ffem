@@ -6,7 +6,7 @@ All the code below is referenced from :
 https://github.com/peteryuX/arcface-tf2
 """
 
-class AddictiveMarginLoss:
+class AdditiveAngularMarginLoss:
 
     def __init__(self, n_embeddings, n_classes, margin=0.5, scale=30):
         self.n_embeddings = n_embeddings
