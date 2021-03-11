@@ -10,12 +10,11 @@ class ProxyNCALoss:
     def __init__(self, n_embedding, n_classes, scale):
         self.n_classes = n_classes
         self.scale = scale
-        self.initializer = tf.keras.initializers.Orthogonal(1/8)
+        self.initializer = tf.keras.initializers.HeNormal()
         self.proxies = tf.Variable(name='proxies',
             initial_value=self.initializer((self.n_classes, n_embedding)),
             trainable=True)
         self.trainable_weights = [self.proxies]
-
 
     def __call__(self, y_true, y_pred):
         """
@@ -34,7 +33,7 @@ class ProxyNCALoss:
         # select all distance summation between example and negative proxy.
         neg = tf.where(onehot, tf.zeros_like(dist), tf.math.exp(dist))
         neg = tf.math.reduce_sum(neg, axis=1)
-        # negative log_softmax: log(exp(a)/sum(exp(b)))=a-log(sum(exp(b)))
-        loss = -1 * (pos - tf.math.log(neg))
+        # negative log_softmax: -log(exp(a)/sum(exp(b))) = log(sum(exp(b))) - a
+        loss = tf.math.log(neg) - pos
         loss = tf.math.reduce_mean(loss)
         return loss
