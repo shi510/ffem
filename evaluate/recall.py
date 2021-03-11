@@ -33,12 +33,10 @@ def evaluate(model, dataset, metric, top_k: list, batch_size=256, norm=True):
         batch_pred = model(batch_x)
         if norm:
             batch_pred = tf.math.l2_normalize(batch_pred, axis=1)
-        batch_pred = batch_pred.numpy()
-        for x, y in zip(batch_pred, batch_y):
-            X.append(x)
-            Y.append(y)
-    X = np.array(X)
-    Y = np.array(Y)
+        X.append(batch_pred)
+        Y.append(batch_y)
+    X = tf.concat(X, axis=0)
+    Y = tf.concat(Y, axis=0)
     ds = tf.data.Dataset.from_tensor_slices(X)
     ds = ds.batch(batch_size)
     P = []
@@ -46,13 +44,10 @@ def evaluate(model, dataset, metric, top_k: list, batch_size=256, norm=True):
     # calculate top_k using batched sample for memory efficiency.
     for n, batch_x in enumerate(ds):
         dist = metric_fn(batch_x, X)
-        max_dist = tf.math.reduce_max(dist)
         # remove self distance.
-        shifted_eye = np.eye(batch_x.shape[0], X.shape[0], n * batch_x.shape[0])
-        if largest:
-            dist = dist - shifted_eye * max_dist
-        else:
-            dist = dist + shifted_eye * max_dist
+        max_dist = float('-inf') if largest else float('inf')
+        max_dist = tf.fill(batch_x.shape[0], max_dist)
+        dist = tf.linalg.set_diag(dist, max_dist, k=n*batch_x.shape[0])
         # get top_k label
         batch_top_k_label = calc_top_k_label(dist, Y, max_top_k, largest)
         # merge list
