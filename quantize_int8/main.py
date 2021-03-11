@@ -12,6 +12,7 @@ def convert_tflite_int8(model, ds, output_name):
                 print(n)
             # Get sample input data as a numpy array in a method of your choosing.
             # The batch size should be 1.
+            # So the shape of the x should be (1, height, width, channel)
             yield [x]
     converter.representative_dataset = representative_dataset_gen
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]

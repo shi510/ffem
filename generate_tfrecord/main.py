@@ -7,15 +7,15 @@ import tensorflow as tf
 
 
 def _bytes_feature(value):
-  """Returns a bytes_list from a string / byte."""
-  if isinstance(value, type(tf.constant(0))):
-    value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
-  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+    """Returns a bytes_list from a string / byte."""
+    if isinstance(value, type(tf.constant(0))):
+        value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
 def _int64_feature(value):
-  """Returns an int64_list from a bool / enum / int / uint."""
-  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+    """Returns an int64_list from a bool / enum / int / uint."""
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
 def make_tfrecord(root_path, out_file, example_json, max_label=None):
@@ -60,10 +60,9 @@ if __name__ == '__main__':
     parser.add_argument('--json_file', type=str, required=True,
         help='examples including image relative path, label and bounding box')
     parser.add_argument('--output', type=str, required=True,
-        help='tfrecord file name excluding extension')
+        help='tfrecord file name including extension')
     parser.add_argument('--max_label', type=int, required=False,
-        default=None,
-        help='tfrecord file name excluding extension')
+        default=None, help='maximum label')
     args = parser.parse_args()
 
 
