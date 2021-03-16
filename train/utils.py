@@ -21,7 +21,8 @@ def pairwise_distance(A, B):
     row_norms_B = tf.math.reduce_sum(tf.square(B), axis=1)
     row_norms_B = tf.reshape(row_norms_B, [1, -1])  # Row vector.
 
-    return row_norms_A - 2 * tf.matmul(A, tf.transpose(B)) + row_norms_B
+    dist = row_norms_A - 2 * tf.matmul(A, tf.transpose(B)) + row_norms_B
+    return tf.math.maximum(dist, 0.)
 
 
 def open_config_file(file_path):

@@ -26,17 +26,13 @@ class AdditiveAngularMarginLoss:
     def __call__(self, y_true, y_pred):
         normed_embds = tf.nn.l2_normalize(y_pred, axis=1)
         normed_w = tf.nn.l2_normalize(self.weights, axis=0)
-
         cos_t = tf.matmul(normed_embds, normed_w)
         sin_t = tf.sqrt(1. - cos_t ** 2)
-
         cos_mt = cos_t * self.cos_m - sin_t * self.sin_m
-
-        cos_mt = tf.where(cos_t > self.th, cos_mt, cos_t - self.mm)
-
+        cos_mt = tf.where(cos_t > self.th, cos_mt, -1.)
         mask = tf.one_hot(y_true, self.n_classes)
-
-        logists = tf.where(mask == 1., cos_mt, cos_t)
-        logists = logists * self.scale
-        loss = tf.nn.softmax_cross_entropy_with_logits(mask, logists)
-        return tf.reduce_mean(loss)
+        logits = tf.where(mask == 1., cos_mt, cos_t)
+        logits = logits * self.scale
+        probs = tf.nn.softmax(logits, axis=1)
+        loss = tf.keras.losses.categorical_crossentropy(mask, probs)
+        return tf.reduce_mean(loss), probs

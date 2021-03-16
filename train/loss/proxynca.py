@@ -12,7 +12,7 @@ class ProxyNCALoss:
         self.scale = scale
         self.initializer = tf.keras.initializers.HeNormal()
         self.proxies = tf.Variable(name='proxies',
-            initial_value=self.initializer((self.n_classes, n_embedding)),
+            initial_value=self.initializer((n_embedding, self.n_classes)),
             trainable=True)
         self.trainable_weights = [self.proxies]
 
@@ -22,8 +22,8 @@ class ProxyNCALoss:
         """
         onehot = tf.one_hot(y_true, self.n_classes, True, False)
         norm_x = tf.math.l2_normalize(y_pred, axis=1)
-        norm_p = tf.math.l2_normalize(self.proxies, axis=1)
-        dist = tf.matmul(norm_x, tf.transpose(norm_p)) * self.scale
+        norm_p = tf.math.l2_normalize(self.proxies, axis=0)
+        dist = tf.matmul(norm_x, norm_p) * self.scale
         # for numerical stability,
         # all distances is substracted by its maximum value before exponentiating.
         dist = dist - tf.math.reduce_max(dist, axis=1, keepdims=True)

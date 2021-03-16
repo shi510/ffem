@@ -20,6 +20,7 @@ class CenterSoftmaxModel(tf.keras.Model):
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
         self.loss_tracker_softmax = tf.keras.metrics.Mean(name='softmax_loss')
         self.loss_tracker_center = tf.keras.metrics.Mean(name='center_loss')
+        self.acc_tracker = tf.keras.metrics.SparseCategoricalAccuracy()
 
     def compile(self, optimizer, **kwargs):
         super(CenterSoftmaxModel, self).compile(**kwargs)
@@ -30,7 +31,7 @@ class CenterSoftmaxModel(tf.keras.Model):
         x, y_true = data
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
-            loss1 = self.softmax_loss(y_true, y_pred)
+            loss1, probs = self.softmax_loss(y_true, y_pred)
             loss2 = self.center_loss(y_true, y_pred) * self.center_weight
             total_loss = loss1 + loss2
         trainable_vars = self.trainable_weights
@@ -43,14 +44,18 @@ class CenterSoftmaxModel(tf.keras.Model):
         self.loss_tracker.update_state(total_loss)
         self.loss_tracker_softmax.update_state(loss1)
         self.loss_tracker_center.update_state(loss2)
+        self.acc_tracker.update_state(y_true, probs)
         return {'loss': self.loss_tracker.result(),
             'softmax_loss': self.loss_tracker_softmax.result(),
-            'center_loss': self.loss_tracker_center.result()
-            }
+            'center_loss': self.loss_tracker_center.result(),
+            'accuracy': self.acc_tracker.result()}
 
     @property
     def metrics(self):
-        return [self.loss_tracker, self.loss_tracker_softmax, self.loss_tracker_center]
+        return [self.loss_tracker,
+            self.loss_tracker_softmax,
+            self.loss_tracker_center,
+            self.acc_tracker]
 
 
 class ProxyNCAModel(tf.keras.Model):
@@ -95,6 +100,7 @@ class AdditiveAngularMarginModel(tf.keras.Model):
         self.n_classes = n_classes
         self.margin_loss = AdditiveAngularMarginLoss(n_embeddings, n_classes, margin, scale)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
+        self.acc_tracker = tf.keras.metrics.SparseCategoricalAccuracy()
 
     def compile(self, optimizer, **kwargs):
         super(AdditiveAngularMarginModel, self).compile(**kwargs)
@@ -104,14 +110,16 @@ class AdditiveAngularMarginModel(tf.keras.Model):
         x, y_true = data
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)
-            total_loss = self.margin_loss(y_true, y_pred)
+            total_loss, probs = self.margin_loss(y_true, y_pred)
         trainable_vars = self.trainable_weights
         trainable_vars += self.margin_loss.trainable_weights
         grads = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(grads, trainable_vars))
         self.loss_tracker.update_state(total_loss)
-        return {'loss': self.loss_tracker.result()}
+        self.acc_tracker.update_state(y_true, probs)
+        return {'loss': self.loss_tracker.result(),
+            'accuracy': self.acc_tracker.result()}
 
     @property
     def metrics(self):
-        return [self.loss_tracker]
+        return [self.loss_tracker, self.acc_tracker]
