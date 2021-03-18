@@ -79,16 +79,19 @@ def build_callbacks(config, test_ds_dict):
     recall_eval = RecallCallback(test_ds_dict, recall_topk, metric, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='recall@1', factor=0.1, mode='max',
-        patience=1, min_lr=1e-4)
+        patience=2, min_lr=1e-4)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
         filepath='./checkpoint'+os.path.sep+config['model_name'],
         save_weights_only=False,
         monitor='recall@1',
         mode='max',
         save_best_only=True)
+    # The callback logs should be synced.
+    # This is a bug in tensorflow keras CallbackList class (v2.4.1).
+    checkpoint._supports_tf_logs = False
     early_stop = tf.keras.callbacks.EarlyStopping(
         monitor='recall@1',
-        mode='max', patience=3,
+        mode='max', patience=7,
         restore_best_weights=True)
     tensorboard_log = LogCallback(log_dir)
 
@@ -146,8 +149,8 @@ if __name__ == '__main__':
     net = build_model(config)
     opt = build_optimizer(config)
     callbacks, early_stop = build_callbacks(config, test_ds_dict)
-    net.summary()
     net.compile(optimizer=opt)
+    net.summary()
     try:
         net.fit(train_ds, epochs=config['epoch'], verbose=1,
             workers=input_pipeline.TF_AUTOTUNE,
