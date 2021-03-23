@@ -42,8 +42,8 @@ Execute the command `export PYTHONPATH=$(pwd)` first.
 Set 'tfrecord_file' and 'num_identity' in `train/config.py`.  
 
 ## Recommendation Steps for Training.
-1. Set 'loss'=`CenterSoftmax` or `ProxySoftmax`, then train with vggface2 dataset.  
-2. Set 'loss'=`AdditiveMargin`, then train with large identity dataset.  
+1. Set 'loss'=`CenterSoftmax` or `ProxyNCA`, then train on VGGFACE2 dataset.  
+2. Set 'loss'=`AdditiveAngularMargin`, then train on large identity dataset.  
 The training command is `python train/main.py`.  
 
 

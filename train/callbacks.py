@@ -35,7 +35,6 @@ class RecallCallback(tf.keras.callbacks.Callback):
         self.writer.close()
 
     def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
         recall_avgs = {}
         # Init recall average dictionary
         for k in self.top_k:
@@ -57,5 +56,5 @@ class RecallCallback(tf.keras.callbacks.Callback):
             ds_size = len(self.ds_dict)
             for key in recall_avgs:
                 recall_avgs[key] /= ds_size
-                logs[key] = tf.identity(recall_avgs[key])
+                logs[key] = recall_avgs[key]
             self.writer.flush()

@@ -52,9 +52,7 @@ def build_model(config):
 
     def _embedding_layer(feature):
         y = x = tf.keras.Input(feature.shape[1:])
-        y = tf.keras.layers.Dropout(rate=0.5)(y)
-        y = tf.keras.layers.BatchNormalization()(y)
-        y = tf.keras.layers.Flatten()(y)
+        y = train.blocks.attach_GNAP(y)
         y = train.blocks.attach_embedding_projection(y, config['embedding_dim'])
         return tf.keras.Model(x, y, name='embeddings')(feature)
 
@@ -79,13 +77,14 @@ def build_callbacks(config, test_ds_dict):
     recall_eval = RecallCallback(test_ds_dict, recall_topk, metric, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         monitor='recall@1', factor=0.1, mode='max',
-        patience=2, min_lr=1e-4)
+        patience=2, min_lr=1e-4, verbose=1)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
         filepath='./checkpoint'+os.path.sep+config['model_name'],
         save_weights_only=False,
         monitor='recall@1',
         mode='max',
-        save_best_only=True)
+        save_best_only=True,
+        verbose=1)
     # The callback logs should be synced.
     # This is a bug in tensorflow keras CallbackList class (v2.4.1).
     checkpoint._supports_tf_logs = False
@@ -96,11 +95,11 @@ def build_callbacks(config, test_ds_dict):
     tensorboard_log = LogCallback(log_dir)
 
     callback_list.append(recall_eval)
-    callback_list.append(tensorboard_log)
     callback_list.append(checkpoint)
     callback_list.append(early_stop)
     if not config['lr_decay']:
         callback_list.append(reduce_lr)
+    callback_list.append(tensorboard_log)
     return callback_list, early_stop
 
 
@@ -133,10 +132,7 @@ def build_optimizer(config):
 
 
 def remove_subclassing_keras_model(model):
-    y = x = model.layers[0].input
-    for l in model.layers[1:]:
-        y = l(y)
-    return tf.keras.Model(x, y, name=model.name)
+    return tf.keras.Model(model.inputs, model.outputs, name=model.name)
 
 
 if __name__ == '__main__':
