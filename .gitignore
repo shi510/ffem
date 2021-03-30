@@ -3,3 +3,4 @@ checkpoint*
 logs*
 *.json
 *.h5
+*.tfrecord

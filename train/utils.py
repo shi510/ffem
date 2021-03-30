@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_model_optimization as tfmot
 from tensorboard.plugins import projector
 
 
@@ -77,3 +78,27 @@ def visualize_embeddings(model, dataset, n_embeddings):
     embedding.tensor_name = "embedding/.ATTRIBUTES/VARIABLE_VALUE"
     embedding.metadata_path = 'metadata.tsv'
     projector.visualize_embeddings(log_dir, config)
+
+
+def apply_pruning(to_prune, prune_params, layer_id=None):
+    def _clone_fn(layer):
+        pruning_params = {
+            'pruning_schedule': 
+                tfmot.sparsity.keras.PolynomialDecay(**prune_params)
+        }
+        return tfmot.sparsity.keras.prune_low_magnitude(layer, **pruning_params)
+    if layer_id is None:
+        net = _clone_fn(to_prune)
+        x = net.inputs
+        y = net.outputs
+    else:
+        y = x = to_prune.inputs
+        target_model = tf.keras.models.clone_model(
+            to_prune.layers[layer_id] if layer_id is not None else to_prune,
+            clone_function=_clone_fn)
+        for n, layer in enumerate(to_prune.layers[1:], 1):
+            if layer_id != n:
+                y = layer(y)
+            else:
+                y = target_model(y)
+    return tf.keras.Model(x, y, name=to_prune.name)

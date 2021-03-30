@@ -1,5 +1,13 @@
 config = {
     'mixed_precision': False,
+    
+    'enable_prune': False,
+    'prune_params':{
+        'initial_sparsity': 0.3,
+        'final_sparsity': 0.8,
+        'begin_step': 10000,
+        'end_step': 30000
+    },
     #
     # Save trained model named with 'model_name'.h5.
     # The best model at each epoch is saved to the folder ./checkpoint/'model_name'.

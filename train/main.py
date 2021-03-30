@@ -6,6 +6,7 @@ import train.input_pipeline as input_pipeline
 import train.config
 from train.callbacks import LogCallback
 from train.callbacks import RecallCallback
+from train.utils import apply_pruning
 import net_arch.models
 import train.blocks
 from train.custom_model import AdditiveAngularMarginModel
@@ -15,6 +16,7 @@ from train.custom_model import ProxyNCAModel
 import tensorflow as tf
 import tensorflow_addons as tfa
 import tensorflow.keras.mixed_precision as mixed_precision
+import tensorflow_model_optimization as tfmot
 
 
 def build_dataset(config):
@@ -46,9 +48,10 @@ def build_backbone_model(config):
 
 
 def build_model(config):
-    y = x1 = tf.keras.Input(config['shape'])
     net, is_pretrained = build_backbone_model(config)
-    y = net(y)
+    if config['enable_prune']:
+        net = apply_pruning(
+            net, config['prune_params'], 1 if is_pretrained else None)
 
     def _embedding_layer(feature):
         y = x = tf.keras.Input(feature.shape[1:])
@@ -57,7 +60,12 @@ def build_model(config):
         return tf.keras.Model(x, y, name='embeddings')(feature)
 
     if not is_pretrained:
+        y = x1 = tf.keras.Input(config['shape'])
+        y = net(y)
         y = _embedding_layer(y)
+    else:
+        x1 = net.inputs
+        y = net.outputs
     loss_param = copy.deepcopy(config['loss_param'][config['loss']])
     loss_param['n_embeddings'] = config['embedding_dim']
     loss_param['n_classes'] = config['num_identity']
@@ -79,7 +87,7 @@ def build_callbacks(config, test_ds_dict):
         monitor='recall@1', factor=0.1, mode='max',
         patience=2, min_lr=1e-4, verbose=1)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath='./checkpoint'+os.path.sep+config['model_name'],
+        filepath='./checkpoint/' + config['model_name'],
         save_weights_only=False,
         monitor='recall@1',
         mode='max',
@@ -100,6 +108,11 @@ def build_callbacks(config, test_ds_dict):
     if not config['lr_decay']:
         callback_list.append(reduce_lr)
     callback_list.append(tensorboard_log)
+    if config['enable_prune']:
+        callback_list += [
+            tfmot.sparsity.keras.UpdatePruningStep(),
+            tfmot.sparsity.keras.PruningSummaries(log_dir=log_dir),
+            ]
     return callback_list, early_stop
 
 
@@ -159,6 +172,8 @@ if __name__ == '__main__':
             print('Training canceled and weights are restored from the best')
             net.set_weights(early_stop.best_weights)
     net = remove_subclassing_keras_model(net)
+    if config['enable_prune']:
+        net = tfmot.sparsity.keras.strip_pruning(net)
     net.save('{}.h5'.format(config['model_name']), include_optimizer=False)
 
     # print('Generating TensorBoard Projector for Embedding Vector...')
