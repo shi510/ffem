@@ -74,7 +74,6 @@ def input_pipeline(dataset_file, input_shape):
 
     test_ds = tf.data.TFRecordDataset(dataset_file)
     test_ds = test_ds.map(_read_tfrecord)
-    test_ds = test_ds.shuffle(10000)
     test_ds = test_ds.map(_load_and_preprocess_image)
     test_ds = test_ds.map(
         lambda x, label, box: (tf.image.crop_and_resize([x], [box], [0], input_shape)[0], label))
@@ -93,13 +92,13 @@ if __name__ == '__main__':
     parser.add_argument('--image_size', type=str, required=True,
         help='image width and height. ex) 112,112')
     parser.add_argument('--quant_level', type=int, required=False,
-        default=0, help='0~2')
+        default=0, help='quantization level 0 ~ 2')
     args = parser.parse_args()
     img_size = args.image_size.split(',')
     width = int(img_size[0])
     height = int(img_size[1])
     output_name = os.path.splitext(args.keras_model)[0] + '.tflite'
-    quant_level = args.quant_label
+    quant_level = args.quant_level
     dataset = input_pipeline(args.dataset, (width, height))
     net = tf.keras.models.load_model(args.keras_model)
     convert_tflite_int8(net, dataset, output_name, quant_level)
