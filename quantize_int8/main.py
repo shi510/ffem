@@ -3,21 +3,33 @@ import os
 
 import tensorflow as tf
 
-def convert_tflite_int8(model, ds, output_name):
+def convert_tflite_int8(model, calb_data, output_name, quant_level=0):
+    """
+    quant_level == 0:
+        weights only quantzation, no requires calibration data.
+    quant_level == 1:
+        Full quantization for supported operators.
+        It remains float for not supported operators.
+    quant_level == 2:
+        Full quantization for all operators.
+        It can not be converted if the model contains not supported operators.
+    """
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     def representative_dataset_gen():
-        for n, (x, _ )in enumerate(ds.take(5000)):
+        for n, (x, _ )in enumerate(calb_data.take(5000)):
             if n % 100 == 0:
                 print(n)
             # Get sample input data as a numpy array in a method of your choosing.
             # The batch size should be 1.
             # So the shape of the x should be (1, height, width, channel)
             yield [x]
-    converter.representative_dataset = representative_dataset_gen
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-    converter.inference_input_type = tf.uint8  # or tf.int8
-    converter.inference_output_type = tf.uint8  # or tf.int8
+    if quant_level == 1:
+        converter.representative_dataset = representative_dataset_gen
+    elif quant_level == 2:
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.uint8  # or tf.int8
+        converter.inference_output_type = tf.uint8  # or tf.int8
     tflite_quant_model = converter.convert()
     with open(output_name, 'wb') as f:
         f.write(tflite_quant_model)
@@ -80,10 +92,14 @@ if __name__ == '__main__':
         help='calibration dataset (tfrecord)')
     parser.add_argument('--image_size', type=str, required=True,
         help='image width and height. ex) 112,112')
+    parser.add_argument('--quant_level', type=int, required=False,
+        default=0, help='0~2')
     args = parser.parse_args()
     img_size = args.image_size.split(',')
     width = int(img_size[0])
     height = int(img_size[1])
+    output_name = os.path.splitext(args.keras_model)[0] + '.tflite'
+    quant_level = args.quant_label
     dataset = input_pipeline(args.dataset, (width, height))
     net = tf.keras.models.load_model(args.keras_model)
-    convert_tflite_int8(net, dataset, os.path.splitext(args.keras_model)[0] + '.tflite')
+    convert_tflite_int8(net, dataset, output_name, quant_level)
