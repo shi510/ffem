@@ -21,7 +21,12 @@ config = {
     #
     'saved_model': '',
 
-    'batch_size' : 256,
+    #
+    # If batch_size and batch_division are 1024 and 8 respectively, the model is created with 128 batch size (1024 / 8).
+    # Then, the gradients are accumulated for 8 times and the accumulated gradients are updated.
+    #
+    'batch_size' : 1024,
+    'batch_division': 8,
     'shape' : [112, 112, 3],
 
     #

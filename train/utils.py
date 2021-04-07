@@ -102,3 +102,29 @@ def apply_pruning(to_prune, prune_params, layer_id=None):
             else:
                 y = target_model(y)
     return tf.keras.Model(x, y, name=to_prune.name)
+
+class GradientAccumulator:
+
+    def __init__(self, opt, steps):
+        self.opt = opt
+        self.steps = steps
+        self.grads = None
+        self.count = 0
+
+    def apply_gradients(self, step_grads_vars):
+        step_grads, step_vars = zip(*step_grads_vars)
+        self.grads = self._accumulate_gradients(step_grads)
+        if (self.count+1) % self.steps == 0:
+            self.opt.apply_gradients(zip(self.grads, step_vars))
+            self.count = 0
+            self.grads = None
+        else:
+            self.count += 1
+
+    def _accumulate_gradients(self, step_grads):
+        if self.grads is None:
+            self.grads = [g / self.steps for g in step_grads]
+        else:
+            for i, g in enumerate(step_grads):
+                self.grads[i] += g / self.steps
+        return self.grads

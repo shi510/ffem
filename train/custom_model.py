@@ -2,6 +2,7 @@ from train.loss.proxynca import ProxyNCALoss
 from train.loss.softmax import SoftmaxLoss
 from train.loss.center_loss import CenterLoss
 from train.loss.additive_angular_margin_loss import AdditiveAngularMarginLoss
+from train.utils import GradientAccumulator
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -22,10 +23,13 @@ class CenterSoftmaxModel(tf.keras.Model):
         self.loss_tracker_center = tf.keras.metrics.Mean(name='center_loss')
         self.acc_tracker = tf.keras.metrics.SparseCategoricalAccuracy()
 
-    def compile(self, optimizer, **kwargs):
+    def compile(self, optimizer, batch_division, **kwargs):
         super(CenterSoftmaxModel, self).compile(**kwargs)
-        self.optimizer = optimizer
-        self.optimizer_center = tfa.optimizers.AdamW(learning_rate=self.center_lr, weight_decay=1e-4)
+        self.opt = optimizer
+        self.opt_center = tfa.optimizers.AdamW(learning_rate=self.center_lr, weight_decay=1e-4)
+        if batch_division > 1:
+            self.opt = GradientAccumulator(self.opt, batch_division)
+            self.opt_center = GradientAccumulator(self.opt_center, batch_division)
 
     def train_step(self, data):
         x, y_true = data
@@ -39,8 +43,8 @@ class CenterSoftmaxModel(tf.keras.Model):
         trainable_vars += self.center_loss.trainable_weights
         grads = tape.gradient(total_loss, trainable_vars)
         spliter = len(trainable_vars) - len(self.center_loss.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads[:spliter], trainable_vars[:spliter]))
-        self.optimizer_center.apply_gradients(zip(grads[spliter:], trainable_vars[spliter:]))
+        self.opt.apply_gradients(zip(grads[:spliter], trainable_vars[:spliter]))
+        self.opt_center.apply_gradients(zip(grads[spliter:], trainable_vars[spliter:]))
         self.loss_tracker.update_state(total_loss)
         self.loss_tracker_softmax.update_state(loss1)
         self.loss_tracker_center.update_state(loss2)
@@ -68,10 +72,13 @@ class ProxyNCAModel(tf.keras.Model):
         self.proxy_loss = ProxyNCALoss(n_embeddings, n_classes, scale)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
-    def compile(self, optimizer, **kwargs):
+    def compile(self, optimizer, batch_division, **kwargs):
         super(ProxyNCAModel, self).compile(**kwargs)
-        self.optimizer = optimizer
-        self.optimizer_proxy = tfa.optimizers.AdamW(learning_rate=self.proxy_lr, weight_decay=1e-4)
+        self.opt = optimizer
+        self.opt_proxy = tfa.optimizers.AdamW(learning_rate=self.proxy_lr, weight_decay=1e-4)
+        if batch_division > 1:
+            self.opt = GradientAccumulator(self.opt, batch_division)
+            self.opt_proxy = GradientAccumulator(self.opt_proxy, batch_division)
 
     def train_step(self, data):
         x, y_true = data
@@ -82,8 +89,8 @@ class ProxyNCAModel(tf.keras.Model):
         trainable_vars += self.proxy_loss.trainable_weights
         grads = tape.gradient(total_loss, trainable_vars)
         spliter = len(trainable_vars) - len(self.proxy_loss.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads[:spliter], trainable_vars[:spliter]))
-        self.optimizer_proxy.apply_gradients(zip(grads[spliter:], trainable_vars[spliter:]))
+        self.opt.apply_gradients(zip(grads[:spliter], trainable_vars[:spliter]))
+        self.opt_proxy.apply_gradients(zip(grads[spliter:], trainable_vars[spliter:]))
         self.loss_tracker.update_state(total_loss)
         return {'loss': self.loss_tracker.result()}
 
@@ -102,9 +109,11 @@ class AdditiveAngularMarginModel(tf.keras.Model):
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
         self.acc_tracker = tf.keras.metrics.SparseCategoricalAccuracy()
 
-    def compile(self, optimizer, **kwargs):
+    def compile(self, optimizer, batch_division, **kwargs):
         super(AdditiveAngularMarginModel, self).compile(**kwargs)
-        self.optimizer = optimizer
+        self.opt = optimizer
+        if batch_division > 1:
+            self.opt = GradientAccumulator(self.opt, batch_division)
 
     def train_step(self, data):
         x, y_true = data
@@ -114,7 +123,7 @@ class AdditiveAngularMarginModel(tf.keras.Model):
         trainable_vars = self.trainable_weights
         trainable_vars += self.margin_loss.trainable_weights
         grads = tape.gradient(total_loss, trainable_vars)
-        self.optimizer.apply_gradients(zip(grads, trainable_vars))
+        self.opt.apply_gradients(zip(grads, trainable_vars))
         self.loss_tracker.update_state(total_loss)
         self.acc_tracker.update_state(y_true, probs)
         return {'loss': self.loss_tracker.result(),

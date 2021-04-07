@@ -23,7 +23,7 @@ def build_dataset(config):
     train_ds, test_ds_dict = input_pipeline.make_tfdataset(
         config['train_file'],
         config['test_files'],
-        config['batch_size'],
+        config['batch_size'] // config['batch_division'],
         config['shape'][:2])
     return train_ds, test_ds_dict
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     net = build_model(config)
     opt = build_optimizer(config)
     callbacks, early_stop = build_callbacks(config, test_ds_dict)
-    net.compile(optimizer=opt)
+    net.compile(optimizer=opt, batch_division=config['batch_division'], run_eagerly=True)
     net.summary()
     try:
         net.fit(train_ds, epochs=config['epoch'], verbose=1,
