@@ -22,6 +22,7 @@ class AngularMarginModel(tf.keras.Model):
         self.acc_tracker = tf.keras.metrics.CategoricalAccuracy()
 
     def compile(self, optimizer, batch_division):
+        super(AngularMarginModel, self).compile()
         self.opt = optimizer
         if batch_division > 1:
             self.opt = GradientAccumulator(self.opt, batch_division)
