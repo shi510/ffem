@@ -1,6 +1,5 @@
-from train.layers.embedding_layer import EmbeddingLayer
+from train.layers.norm_aware_pooling_layer import NormAwarePoolingLayer
 from train.layers.angular_margin_layer import AngularMarginLayer
-from train.utils import GradientAccumulator
 
 import tensorflow as tf
 
@@ -16,27 +15,31 @@ class AngularMarginModel(tf.keras.Model):
         super(AngularMarginModel, self).__init__()
         self.backbone = backbone
         self.n_classes = n_classes
-        self.feature_pooling = EmbeddingLayer(embedding_dim)
+        self.feature_pooling = NormAwarePoolingLayer()
+        self.fc1 = tf.keras.layers.Dense(embedding_dim,
+            kernel_regularizer=tf.keras.regularizers.l2(5e-4))
+        self.batchnorm_final = tf.keras.layers.BatchNormalization()
         self.angular_margin = AngularMarginLayer(n_classes)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
         self.acc_tracker = tf.keras.metrics.CategoricalAccuracy()
 
-    def compile(self, optimizer, batch_division):
-        super(AngularMarginModel, self).compile()
-        self.opt = optimizer
-        if batch_division > 1:
-            self.opt = GradientAccumulator(self.opt, batch_division)
+    def compile(self, **kargs):
+        super(AngularMarginModel, self).compile(**kargs)
 
     def call(self, inputs, training=False):
         if training:
             x, y_true = inputs
             features = self.backbone(x)
-            embeddings, _ = self.feature_pooling(features)
+            embeddings = self.feature_pooling(features)
+            embeddings = self.fc1(embeddings)
+            embeddings = self.batchnorm_final(embeddings)
             embeddings = self.angular_margin([embeddings, y_true])
         else:
             x = inputs
             features = self.backbone(x)
-            embeddings, _ = self.feature_pooling(features)
+            embeddings = self.feature_pooling(features)
+            embeddings = self.fc1(embeddings)
+            embeddings = self.batchnorm_final(embeddings)
         return embeddings
 
     def train_step(self, data):
@@ -48,7 +51,7 @@ class AngularMarginModel(tf.keras.Model):
             total_loss = tf.keras.losses.categorical_crossentropy(y_true, probs)
             total_loss = tf.math.reduce_mean(total_loss)
         grads = tape.gradient(total_loss, self.trainable_variables)
-        self.opt.apply_gradients(zip(grads, self.trainable_variables))
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
         self.loss_tracker.update_state(total_loss)
         self.acc_tracker.update_state(y_true, probs)
         return {'loss': self.loss_tracker.result(),
@@ -58,3 +61,10 @@ class AngularMarginModel(tf.keras.Model):
     def metrics(self):
         return [self.loss_tracker, self.acc_tracker]
 
+    def get_inference_model(self):
+        y = x = self.backbone.inputs
+        y = self.backbone(y)
+        y = self.feature_pooling(y)
+        y = self.fc1(y)
+        y = self.batchnorm_final(y)
+        return tf.keras.Model(x, y, name='{}_embedding'.format(self.name))
