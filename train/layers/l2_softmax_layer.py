@@ -25,6 +25,9 @@ class L2SoftmaxLayer(tf.keras.layers.Layer):
         self.b = tf.Variable(name='biases',
             initial_value=initializer((self.num_classes)),
             trainable=True)
+        if tf.keras.mixed_precision.global_policy().name == 'mixed_float16':
+            self.w = tf.cast(self.w, dtype=tf.float16)
+            self.b = tf.cast(self.b, dtype=tf.float16)
 
     def call(self, y_pred):
         norm_x = tf.math.l2_normalize(y_pred, axis=1) * self.scale

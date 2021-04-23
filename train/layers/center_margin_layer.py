@@ -22,6 +22,8 @@ class CenterMarginLayer(tf.keras.layers.Layer):
         self.c = tf.Variable(name='centers',
             initial_value=initializer((self.num_classes, n_embeddings)),
             trainable=True)
+        if tf.keras.mixed_precision.global_policy().name == 'mixed_float16':
+            self.c = tf.cast(self.c, dtype=tf.float16)
 
     def call(self, inputs):
         y_pred, y_true = inputs

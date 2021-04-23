@@ -31,6 +31,12 @@ class AngularMarginLayer(tf.keras.layers.Layer):
         self.center = tf.Variable(name='center',
             initial_value=self.initializer((input_shape[0][-1], self.n_classes)),
             trainable=True)
+        if tf.keras.mixed_precision.global_policy().name == 'mixed_float16':
+            self.center = tf.cast(self.center, dtype=tf.float16)
+            self.cos_m = tf.cast(self.cos_m, dtype=tf.float16)
+            self.sin_m = tf.cast(self.sin_m, dtype=tf.float16)
+            self.th = tf.cast(self.th, dtype=tf.float16)
+            self.mm = tf.cast(self.mm, dtype=tf.float16)
 
     def call(self, inputs):
         """
