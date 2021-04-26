@@ -11,15 +11,16 @@ class AngularMarginModel(tf.keras.Model):
                  n_classes,
                  embedding_dim=512,
                  margin=0.5,
-                 scale=30):
-        super(AngularMarginModel, self).__init__()
+                 scale=30,
+                 **kargs):
+        super(AngularMarginModel, self).__init__(**kargs)
         self.backbone = backbone
         self.n_classes = n_classes
         self.feature_pooling = NormAwarePoolingLayer()
         self.fc1 = tf.keras.layers.Dense(embedding_dim,
             kernel_regularizer=tf.keras.regularizers.l2(5e-4))
         self.batchnorm_final = tf.keras.layers.BatchNormalization()
-        self.angular_margin = AngularMarginLayer(n_classes)
+        self.angular_margin = AngularMarginLayer(n_classes, margin, scale)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
         self.acc_tracker = tf.keras.metrics.CategoricalAccuracy()
 

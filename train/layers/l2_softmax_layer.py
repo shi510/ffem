@@ -37,4 +37,4 @@ class L2SoftmaxLayer(tf.keras.layers.Layer):
         return probs
 
     def get_config(self):
-        return {"embedding_dim": self.embedding_dim}
+        return {'num_classes': self.num_classes, 'scale': self.scale}

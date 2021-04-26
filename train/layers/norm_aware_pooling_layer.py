@@ -24,3 +24,6 @@ class NormAwarePoolingLayer(tf.keras.layers.Layer):
         y = self.avg_pool(y)
         y = self.batchnorm_out(y)
         return y
+
+    def get_config(self):
+        return {}

@@ -12,8 +12,9 @@ class SoftmaxCenterModel(tf.keras.Model):
                  embedding_dim,
                  n_classes,
                  scale=30,
-                 center_loss_weight=1e-3):
-        super(SoftmaxCenterModel, self).__init__()
+                 center_loss_weight=1e-3,
+                 **kargs):
+        super(SoftmaxCenterModel, self).__init__(**kargs)
         self.backbone = backbone
         self.n_classes = n_classes
         self.center_loss_weight = center_loss_weight

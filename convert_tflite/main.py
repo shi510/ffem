@@ -1,7 +1,14 @@
 import argparse
 import os
 
+from train.layers.group_aware_layer import GroupAwareLayer
+from train.layers.norm_aware_pooling_layer import NormAwarePoolingLayer
+
 import tensorflow as tf
+
+keras_custom_objects = {
+    'GroupAwareLayer':GroupAwareLayer,
+    'NormAwarePoolingLayer':NormAwarePoolingLayer}
 
 def convert_tflite_int8(model, calb_data, output_name, quant_level=0):
     """
@@ -100,5 +107,5 @@ if __name__ == '__main__':
     output_name = os.path.splitext(args.keras_model)[0] + '.tflite'
     quant_level = args.quant_level
     dataset = input_pipeline(args.dataset, (width, height))
-    net = tf.keras.models.load_model(args.keras_model)
+    net = tf.keras.models.load_model(args.keras_model, custom_objects=keras_custom_objects)
     convert_tflite_int8(net, dataset, output_name, quant_level)
