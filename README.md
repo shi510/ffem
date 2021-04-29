@@ -102,4 +102,4 @@ The training command is `python train/main.py`.
 10. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
 11. https://github.com/blaueck/tf-mtcnn
 12. [Global Norm-Aware Pooling for Pose-Robust Face Recognition at Low False Positive Rate](https://arxiv.org/ftp/arxiv/papers/1808/1808.00435.pdf)
-13. [GroupFace](https://arxiv.org/pdf/2005.10497.pdf)
+13. [GroupFace: Learning Latent Groups and Constructing Group-based Representations for Face Recognition](https://arxiv.org/pdf/2005.10497.pdf)

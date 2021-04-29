@@ -71,8 +71,7 @@ def build_model(config):
 
     restore_latest_checkpoint(model, config['checkpoint'])
     if config['enable_quant_aware']:
-        # model.backbone = apply_quantization_aware(model.backbone, None)
-        model = apply_quantization_aware(model, None)
+        model.backbone = apply_quantization_aware(model.backbone, None)
     model([dummy_x, dummy_y], training=True) # dummy call for building model
     return model
 
