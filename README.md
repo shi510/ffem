@@ -1,20 +1,30 @@
 # FFEM  
 FFEM stands for Face Feature Embedding Module.  
-The Tensorflow version should be v2.4.0 or later for mixed precision training.  
-The tensorflow-addons is needed for tfa.images.  
+This project includes following implementations:  
+1. ArcFace  
+2. GroupFace  
+3. CenterLoss  
+
+## Requirements
+```
+tensorflow==2.4.1
+tensorflow-addons==0.12.1
+tensorflow-model-optimization==0.5.0
+numpy==1.19.5
+```
 
 ## How to Make Your Dataset
 You have image_list.json file with the format (json) as below.  
 ```
 {
-  "Asian/m.0hn95h9/000012_00@en.jpg": {
+  "Caucacian/a12/frontal1.jpg": {
     "label": 0,
     "x1": 9,
     "y1": 13,
     "x2": 75,
     "y2": 100
   },
-  "Asian/m.0hn95h9/000046_00@ja.jpg": {
+  "Asian/p14/profile2.jpg": {
     "label": 0,
     "x1": 7,
     "y1": 7,
@@ -38,40 +48,34 @@ python generate_tfrecord/main.py --root_path [path] --json_file [path] --output 
 ```
 
 ## Common Settings
-Execute the command `export PYTHONPATH=$(pwd)` first.  
-Set 'tfrecord_file' and 'num_identity' in `train/config.py`.  
+Execute the command `export PYTHONPATH=$(pwd)` on linux and `env:$PYTHONPATH=$pwd` on windows 10 powershell.  
 
 ## Recommendation Steps for Training.
-1. Set 'loss'=`CenterSoftmax` or `ProxyNCA`, then train on VGGFACE2 dataset.  
-2. Set 'loss'=`AdditiveAngularMargin`, then train on large identity dataset.  
+1. Train a model with 'loss'=`SoftmaxCenter` on VGGFACE2 dataset.  
+2. Train the pretrained model from first step with 'loss'=`AngularMargin` on large identity dataset.  
 The training command is `python train/main.py`.  
 
 
-## Why Do I Have To Train With 2 Steps?
-If your face dataset quality is not good, your trained model also is not good.  
-It maybe good quality if your dataset has 200+ average images per identity.  
-In the case which you want to train asian dataset, trillion pairs, it has 30+ average images per identity.  
-So the quality of the dataset is not good, we should fine-tune a model from pretrained face embedding model.  
-There are good face dataset, for example, vggface2 dataset that has 300+ average images per identity.  
-Consequently you have to train with 2 steps.  
-The training steps is described below.  
-On top of that, small(<=2000) face identities are sufficient to get good initialization when you train the first step.  
+## Results
+|                       |        ResNet50        |
+|-----------------------|------------------------|
+| Recall @ 1, African   | 48%                    |
+| Recall @ 1, Asian     | 81%                    |
+| Recall @ 1, Caucacian | 65%                    |
+| Recall @ 1, Indian    | 66%                    |
+| Recall @ 1, VGGFace2  | 89%                    |
+| Epoch                 | 17                     |
+| Batch Size            | 256                    |
+| Embedding Size        | 512                    |
+| Pre-Embedding Method  | GNAP                   |
+| Loss Type             | AngularMargin(arcface) |
+| Scale                 | 64                     |
+| LR                    | SGD@1e-1               |
+| # of Identity         | 93979                  |
 
-## Training Conditions
-```
-1. Train MobiletNetV3 architecture from scratch as details below:
- - AdditiveAngularMargin Loss
- - ReLU6 activation (Default in this repository)
- - ADAM optimizer with 1e-4 learning rate
- - 50 epochs
- - VGGFACE2 dataset with 4K identities (labels ranges in 0~4000)
-
-2. Train the above pretrained model as details below:
- - AdditiveAngularMargin Loss
- - SGD momentum nesterov optimizer with 1e-3 learning rate
- - 10~15 epochs
- - trillion pairs dataset with large identities (about 90K identities)
-```
+**Trillion Pairs Dataset is used for training.*  
+**RFW and VGGFACE2 are used for testing*  
+**All models are pretrained on VGGFACE2 train-set*  
 
 ## TODO LIST
 
@@ -83,6 +87,7 @@ On top of that, small(<=2000) face identities are sufficient to get good initial
 - [x] ArcFace: Additive Angular Margin Loss for Deep Face Recognition, J. Deng et al., CVPR 2019
 - [ ] Relational Deep Feature Learning for Heterogeneous Face Recognition, M. Cho et al., IEEE 2020
 - [ ] Sub-center ArcFace: Boosting Face Recognition by Large-scale Noisy Web Faces, J. Deng et al., ECCV 2020
+- [x] GroupFace: Learning Latent Groups and Constructing Group-based Representations for Face Recognition, Y. Kim et al., CVPR 2020
 
 ## References
 1. [FaceNet](https://arxiv.org/pdf/1503.03832.pdf)
@@ -97,3 +102,4 @@ On top of that, small(<=2000) face identities are sufficient to get good initial
 10. [Help needed: ArcFace in Keras](https://www.reddit.com/r/deeplearning/comments/cg1kev/help_needed_arcface_in_keras)
 11. https://github.com/blaueck/tf-mtcnn
 12. [Global Norm-Aware Pooling for Pose-Robust Face Recognition at Low False Positive Rate](https://arxiv.org/ftp/arxiv/papers/1808/1808.00435.pdf)
+13. [GroupFace](https://arxiv.org/pdf/2005.10497.pdf)

@@ -103,28 +103,65 @@ def apply_pruning(to_prune, prune_params, layer_id=None):
                 y = target_model(y)
     return tf.keras.Model(x, y, name=to_prune.name)
 
-class GradientAccumulator:
+def apply_quantization_aware(to_quant, layer_id=None):
+    def _clone_fn(layer):
+        if isinstance(layer, tf.keras.layers.Conv2D) or \
+            isinstance(layer, tf.keras.layers.Dense):
+            return tfmot.quantization.keras.quantize_annotate_layer(layer)
+        return layer
 
-    def __init__(self, opt, steps):
-        self.opt = opt
-        self.steps = steps
-        self.grads = None
-        self.count = 0
+    if layer_id is None:
+        net = tf.keras.models.clone_model(to_quant, clone_function=_clone_fn)
+        net = tfmot.quantization.keras.quantize_apply(net)
+        x = net.inputs
+        y = net.outputs
+    else:
+        y = x = to_quant.layers[0].inputs
+        target_model = tf.keras.models.clone_model(
+            to_quant.layers[layer_id],
+            clone_function=_clone_fn)
+        target_model = tfmot.quantization.keras.quantize_apply(target_model)
+        for n, layer in enumerate(to_quant.layers):
+            print(n, y, layer)
+            if layer_id != n:
+                y = layer(y)
+            else:
+                y = target_model(y)
+    return tf.keras.Model(x, y, name=to_quant.name)
 
-    def apply_gradients(self, step_grads_vars):
-        step_grads, step_vars = zip(*step_grads_vars)
-        self.grads = self._accumulate_gradients(step_grads)
-        if (self.count+1) % self.steps == 0:
-            self.opt.apply_gradients(zip(self.grads, step_vars))
-            self.count = 0
-            self.grads = None
-        else:
-            self.count += 1
 
-    def _accumulate_gradients(self, step_grads):
-        if self.grads is None:
-            self.grads = [g / self.steps for g in step_grads]
-        else:
-            for i, g in enumerate(step_grads):
-                self.grads[i] += g / self.steps
-        return self.grads
+#
+# TODO: Implement Gradient Accumulator.
+#
+# class GradientAccumulator:
+
+#     def __init__(self, opt, steps):
+#         self.opt = opt
+#         self.steps = tf.constant(steps, dtype=tf.float32)
+#         self.grads = None
+#         self.count = tf.Variable(1, dtype=tf.int32)
+
+#     def apply_gradients(self, step_grads_vars):
+#         if self.grads is None:
+#             self.grads = [tf.zeros_like(v) for v in step_grads]
+#         def _accum(step_grads):
+#             if self.count == 1:
+#                 for i, g in enumerate(step_grads):
+#                     self.grads[i] = 0
+#             for i, g in enumerate(step_grads):
+#                 self.grads[i] += g / self.steps
+#             self.count += 1
+#             return [tf.zeros_like(v) for v in step_grads]
+
+#         def _get_accum_grad():
+#             self.count = 1
+#             return self.grads
+
+#         step_grads, step_vars = zip(*step_grads_vars)
+
+#         casted_steps = tf.cast(self.steps, tf.int32)
+#         results = tf.cond(self.count % casted_steps == 0,
+#             lambda : _get_accum_grad(), 
+#             lambda : _accum(step_grads))
+
+#         self.opt.apply_gradients(zip(results, step_vars))

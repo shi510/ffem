@@ -7,40 +7,37 @@ import train.config
 from train.callbacks import LogCallback
 from train.callbacks import RecallCallback
 from train.utils import apply_pruning
+from train.utils import apply_quantization_aware
 import net_arch.models
 import train.blocks
-from train.custom_model import AdditiveAngularMarginModel
-from train.custom_model import CenterSoftmaxModel
-from train.custom_model import ProxyNCAModel
+from train.custom_models.softmax_center_model import SoftmaxCenterModel
+from train.custom_models.angular_margin_model import AngularMarginModel
+from train.custom_models.group_aware_model import GroupAwareModel
 
 import tensorflow as tf
 import tensorflow_addons as tfa
 import tensorflow.keras.mixed_precision as mixed_precision
 import tensorflow_model_optimization as tfmot
+import numpy as np
 
 
 def build_dataset(config):
     train_ds, test_ds_dict = input_pipeline.make_tfdataset(
         config['train_file'],
         config['test_files'],
-        config['batch_size'] // config['batch_division'],
+        config['batch_size'],
         config['shape'][:2])
     return train_ds, test_ds_dict
 
 
 def build_backbone_model(config):
     is_pretrained = False
-    if os.path.exists(config['saved_model']):
-        net = tf.keras.models.load_model(config['saved_model'])
-        if os.path.isdir(config['saved_model']):
-            net.load_weights(config['saved_model']+'/variables/variables')
-        print('')
-        print('******************** Loaded saved weights ********************')
-        print('')
+    if os.path.exists(config['saved_backbone']):
+        net = tf.keras.models.load_model(config['saved_backbone'])
+        print('\n---------------- Restore Backbone Network ----------------\n')
+        print(config['saved_backbone'])
+        print('\n----------------------------------------------------------\n')
         is_pretrained = True
-    elif len(config['saved_model']) != 0:
-        print(config['saved_model'] + ' can not open.')
-        exit(1)
     else :
         net = net_arch.models.get_model(config['model'], config['shape'])
 
@@ -53,28 +50,31 @@ def build_model(config):
         net = apply_pruning(
             net, config['prune_params'], 1 if is_pretrained else None)
 
-    def _embedding_layer(feature):
-        y = x = tf.keras.Input(feature.shape[1:])
-        y = train.blocks.attach_GNAP(y)
-        y = train.blocks.attach_embedding_projection(y, config['embedding_dim'])
-        return tf.keras.Model(x, y, name='embeddings')(feature)
-
-    if not is_pretrained:
-        y = x1 = tf.keras.Input(config['shape'])
-        y = net(y)
-        y = _embedding_layer(y)
+    param = copy.deepcopy(config['loss_param'][config['loss']])
+    dummy_x = np.zeros([config['batch_size']] + config['shape'])
+    dummy_y = np.zeros([config['batch_size']]+[config['num_identity']])
+    model = None
+    if config['loss'] == 'SoftmaxCenter':
+        param['n_classes'] = config['num_identity']
+        param['embedding_dim'] = config['embedding_dim']
+        model = SoftmaxCenterModel(net, **param, name=config['model_name'])
+    elif config['loss'] == 'AngularMargin':
+        param['n_classes'] = config['num_identity']
+        param['embedding_dim'] = config['embedding_dim']
+        model = AngularMarginModel(net, **param, name=config['model_name'])
+    elif config['loss'] == 'GroupAware':
+        param['n_classes'] = config['num_identity']
+        param['instance_dim'] = config['embedding_dim']
+        model = GroupAwareModel(net, **param, name=config['model_name'])
     else:
-        x1 = net.inputs
-        y = net.outputs
-    loss_param = copy.deepcopy(config['loss_param'][config['loss']])
-    loss_param['n_embeddings'] = config['embedding_dim']
-    loss_param['n_classes'] = config['num_identity']
-    if config['loss'] == 'CenterSoftmax':
-        return CenterSoftmaxModel(inputs=x1, outputs=y, **loss_param)
-    elif config['loss'] == 'ProxyNCA':
-        return ProxyNCAModel(inputs=x1, outputs=y, **loss_param)
-    elif config['loss'] == 'AdditiveAngularMargin':
-        return AdditiveAngularMarginModel(inputs=x1, outputs=y, **loss_param)
+        raise Exception('The loss ({}) is not supported.'.format(config['loss']))
+
+    restore_latest_checkpoint(model, config['checkpoint'])
+    if config['enable_quant_aware']:
+        # model.backbone = apply_quantization_aware(model.backbone, None)
+        model = apply_quantization_aware(model, None)
+    model([dummy_x, dummy_y], training=True) # dummy call for building model
+    return model
 
 
 def build_callbacks(config, test_ds_dict):
@@ -84,11 +84,10 @@ def build_callbacks(config, test_ds_dict):
     recall_topk = config['eval']['recall']
     recall_eval = RecallCallback(test_ds_dict, recall_topk, metric, log_dir)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='recall@1', factor=0.1, mode='max',
+        monitor='recall@1', factor=0.5, mode='max',
         patience=2, min_lr=1e-4, verbose=1)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath='./checkpoint/' + config['model_name'],
-        save_weights_only=False,
+        filepath='./checkpoints/{}/best'.format(config['model_name']),
         monitor='recall@1',
         mode='max',
         save_best_only=True,
@@ -111,8 +110,7 @@ def build_callbacks(config, test_ds_dict):
     if config['enable_prune']:
         callback_list += [
             tfmot.sparsity.keras.UpdatePruningStep(),
-            tfmot.sparsity.keras.PruningSummaries(log_dir=log_dir),
-            ]
+            tfmot.sparsity.keras.PruningSummaries(log_dir=log_dir)]
     return callback_list, early_stop
 
 
@@ -144,37 +142,46 @@ def build_optimizer(config):
     return opt_list[config['optimizer']]
 
 
-def remove_subclassing_keras_model(model):
-    return tf.keras.Model(model.inputs, model.outputs, name=model.name)
+def restore_latest_checkpoint(net, checkpoint_path):
+    checkpoint = tf.train.Checkpoint(net)
+    latest_path = tf.train.latest_checkpoint(checkpoint_path)
+    print('\n---------------- Restore Checkpoint ----------------\n')
+    if latest_path is not None:
+        print('restore_latest_checkpoint:', latest_path)
+        checkpoint.restore(latest_path).expect_partial()
+    else:
+        print('Can not find latest checkpoint file:', checkpoint_path)
+    print('\n----------------------------------------------------\n')
 
-
-if __name__ == '__main__':
-    config = train.config.config
+def start_training(config):
     if config['mixed_precision']:
         print('---------------- Enabled Mixed Precision ----------------')
         policy = mixed_precision.Policy('mixed_float16')
         mixed_precision.set_global_policy(policy)
     train_ds, test_ds_dict = build_dataset(config)
-    net = build_model(config)
+    train_net = build_model(config)
     opt = build_optimizer(config)
     callbacks, early_stop = build_callbacks(config, test_ds_dict)
-    net.compile(optimizer=opt, batch_division=config['batch_division'], run_eagerly=True)
-    net.summary()
+    train_net.compile(optimizer=opt)
+    train_net.summary()
     try:
-        net.fit(train_ds, epochs=config['epoch'], verbose=1,
+        train_net.fit(train_ds, epochs=config['epoch'], verbose=1,
             workers=input_pipeline.TF_AUTOTUNE,
             callbacks=callbacks)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         print('--')
         if early_stop.best_weights is None:
-            print('Training canceled, but weights can not be restored because the best model is not available.')
+            print('Training is canceled, but weights can not be restored because the best model is not available.')
         else:
-            print('Training canceled and weights are restored from the best')
-            net.set_weights(early_stop.best_weights)
-    net = remove_subclassing_keras_model(net)
-    if config['enable_prune']:
-        net = tfmot.sparsity.keras.strip_pruning(net)
-    net.save('{}.h5'.format(config['model_name']), include_optimizer=False)
+            print('Training is canceled and weights are restored from the best')
+            train_net.set_weights(early_stop.best_weights)
 
-    # print('Generating TensorBoard Projector for Embedding Vector...')
-    # utils.visualize_embeddings(config)
+    if config['enable_prune']:
+        train_net = tfmot.sparsity.keras.strip_pruning(train_net)
+    infer_model = train_net.get_inference_model()
+    infer_model.save('{}.h5'.format(infer_model.name))
+    train_net.backbone.save('{}_backbone.h5'.format(train_net.name))
+
+if __name__ == '__main__':
+    config = train.config.config
+    start_training(config)

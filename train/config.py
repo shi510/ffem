@@ -1,13 +1,27 @@
 config = {
+
+    #
+    # This is for experiment.
+    # It often results in NAN value during training.
+    #
     'mixed_precision': False,
     
+    #
+    # This is for experiment and it is used for fine-tuning.
+    #
     'enable_prune': False,
     'prune_params':{
         'initial_sparsity': 0.3,
-        'final_sparsity': 0.8,
-        'begin_step': 10000,
+        'final_sparsity': 0.5,
+        'begin_step': 0,
         'end_step': 30000
     },
+
+    #
+    # This is for experiment and it is used for fine-tuning.
+    #
+    'enable_quant_aware' : False,
+
     #
     # Save trained model named with 'model_name'.h5.
     # The best model at each epoch is saved to the folder ./checkpoint/'model_name'.
@@ -15,18 +29,19 @@ config = {
     'model_name': 'ResNet50_centerloss_yourdataset_4000',
 
     #
-    # Restore trained weights.
-    # The architecture must be same with 'model' option.
-    # checkpoint folder or keras saved file including extension.
+    # Restore weights of backbone network.
+    # It restores only weights of backbone network.
     #
-    'saved_model': '',
+    'saved_backbone': '',
 
     #
-    # If batch_size and batch_division are 1024 and 8 respectively, the model is created with 128 batch size (1024 / 8).
-    # Then, the gradients are accumulated for 8 times and the accumulated gradients are updated.
+    # The check_point option is different from saved_backbone option.
+    # It restores the entire weights of a custom model.
+    # So it overrides the weights of saved_backbone with the weights in check_point if you feed both options.
+    # The path should indicate a directory containing checkpoint files.
     #
-    'batch_size' : 1024,
-    'batch_division': 8,
+    'checkpoint': '',
+
     'shape' : [112, 112, 3],
 
     #
@@ -41,24 +56,26 @@ config = {
     'embedding_dim': 512,
 
     #
-    # 1. CenterSoftmax (known as Center Loss)
-    # 2. ProxyNCA
-    # 3. AdditiveAngularMargin (known as ArcFace)
+    # 1. SoftmaxCenter (known as Center Loss)
+    # 2. AngularMargin (known as ArcFace)
+    # 3. GroupAware (known as GroupFace)
     #
-    'loss': 'CenterSoftmax',
+    'loss': 'AngularMargin',
     'loss_param':{
-        'CenterSoftmax':{
+        'SoftmaxCenter':{
             'scale': 30,
-            'center_lr': 1e-2,
-            'center_weight': 1e-3,
+            'center_loss_weight': 1e-3,
         },
-        'ProxyNCA':{
-            'scale': 30,
-            'proxy_lr': 1e-2
-        },
-        'AdditiveAngularMargin':{
-            'scale': 30,
+        'AngularMargin':{
+            'scale': 60,
             'margin': 0.5
+        },
+        'GroupAware':{
+            'scale': 60,
+            'margin': 0.5,
+            'num_groups': 4,
+            'intermidiate_dim': 256,
+            'group_loss_weight': 0.1
         }
     },
 
