@@ -35,17 +35,25 @@ config = {
     'saved_backbone': '',
 
     #
-    # The check_point option is different from saved_backbone option.
+    # The checkpoint option is different from saved_backbone option.
     # It restores the entire weights of a custom model.
-    # So it overrides the weights of saved_backbone with the weights in check_point if you feed both options.
+    # So it overrides the weights of saved_backbone with the weights in checkpoint if you feed both options.
     # The path should indicate a directory containing checkpoint files.
     #
     'checkpoint': '',
 
+    'batch_size' : 256,
+
+    #
+    # It is for training with large batch size on a limited GPU memory.
+    # It accumulates gradients for 'num_grad_accum' times, then applies accumulated gradients.
+    # The total batch size is 'batch_size' * 'num_grad_accum'.
+    # ex) 'num_grad_accum' = 4 and 'batch_size' = 256, then total batch size is 1024.
+    #
+    'num_grad_accum': 4,
     'shape' : [112, 112, 3],
 
     #
-    # If 'saved_model' not exsits, then it will be built with this architecture.
     # Choose one of below: 
     # 1. MobileNetV2
     # 2. MobileNetV3

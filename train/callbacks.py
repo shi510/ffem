@@ -1,3 +1,5 @@
+import os
+
 import evaluate.recall as recall
 
 import tensorflow as tf
@@ -42,11 +44,12 @@ class RecallCallback(tf.keras.callbacks.Callback):
         # Evaluate recall over multiple datasets
         for ds_name in self.ds_dict:
             ds = self.ds_dict[ds_name]
+            ds_base_name = os.path.basename(ds_name)
             recall_top_k = recall.evaluate(self.model, ds, self.metric, self.top_k, 256)
             with self.writer.as_default():
                 for k, value in zip(self.top_k, recall_top_k):
                     recall_str = 'recall@{}'.format(k)
-                    scalar_name = ds_name + '_{}'.format(recall_str)
+                    scalar_name = ds_base_name + '_{}'.format(recall_str)
                     value *= 100
                     tf.summary.scalar(scalar_name, value, step=epoch)
                     logs[scalar_name] = tf.identity(value)

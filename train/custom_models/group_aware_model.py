@@ -1,9 +1,10 @@
 from train.layers.angular_margin_layer import AngularMarginLayer
 from train.layers.group_aware_layer import GroupAwareLayer, GroupLabelGenerator
+from train.utils import GradientAccumulatorModel
 
 import tensorflow as tf
 
-class GroupAwareModel(tf.keras.Model):
+class GroupAwareModel(GradientAccumulatorModel):
 
     def __init__(self,
                  backbone,
@@ -14,8 +15,9 @@ class GroupAwareModel(tf.keras.Model):
                  group_loss_weight=0.1,
                  margin=0.5,
                  scale=30,
+                 num_grad_accum=1,
                  **kargs):
-        super(GroupAwareModel, self).__init__(**kargs)
+        super(GroupAwareModel, self).__init__(num_accum=num_grad_accum, **kargs)
         self.n_classes = n_classes
         self.num_groups = num_groups
         self.group_loss_weight = group_loss_weight
@@ -55,7 +57,7 @@ class GroupAwareModel(tf.keras.Model):
             cls_loss = tf.keras.losses.categorical_crossentropy(y_true, cls_probs)
             total_loss = cls_loss + group_loss * self.group_loss_weight
         grads = tape.gradient(total_loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        self.accumulate_grads_and_apply(grads)
         self.loss_tracker.update_state(total_loss)
         self.cls_acc_tracker.update_state(y_true, cls_probs)
         self.group_acc_tracker.update_state(group_id, group_probs)

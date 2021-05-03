@@ -69,6 +69,11 @@ def build_model(config):
     else:
         raise Exception('The loss ({}) is not supported.'.format(config['loss']))
 
+    # Do pre-compile
+    # This is a tensorflow bug.
+    # After restoring a checkpoint without pre-compile, 
+    #  learning rate is overridden with a checkpoint, when it compiles with a new optimizer.
+    model.compile()
     restore_latest_checkpoint(model, config['checkpoint'])
     if config['enable_quant_aware']:
         model.backbone = apply_quantization_aware(model.backbone, None)

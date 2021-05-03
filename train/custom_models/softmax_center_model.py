@@ -1,11 +1,12 @@
 from train.layers.norm_aware_pooling_layer import NormAwarePoolingLayer
 from train.layers.center_margin_layer import CenterMarginLayer
 from train.layers.l2_softmax_layer import L2SoftmaxLayer
+from train.utils import GradientAccumulatorModel
 
 import tensorflow as tf
 
 
-class SoftmaxCenterModel(tf.keras.Model):
+class SoftmaxCenterModel(GradientAccumulatorModel):
 
     def __init__(self,
                  backbone,
@@ -13,8 +14,9 @@ class SoftmaxCenterModel(tf.keras.Model):
                  n_classes,
                  scale=30,
                  center_loss_weight=1e-3,
+                 num_grad_accum=1,
                  **kargs):
-        super(SoftmaxCenterModel, self).__init__(**kargs)
+        super(SoftmaxCenterModel, self).__init__(num_accum=num_grad_accum, **kargs)
         self.backbone = backbone
         self.n_classes = n_classes
         self.center_loss_weight = center_loss_weight
@@ -59,7 +61,7 @@ class SoftmaxCenterModel(tf.keras.Model):
             center_loss = center_loss * self.center_loss_weight
             total_loss = softmax_loss + center_loss
         grads = tape.gradient(total_loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        self.accumulate_grads_and_apply(grads)
         self.softmax_tracker.update_state(softmax_loss)
         self.center_tracker.update_state(center_loss)
         self.loss_tracker.update_state(total_loss)

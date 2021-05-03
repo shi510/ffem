@@ -1,10 +1,11 @@
 from train.layers.norm_aware_pooling_layer import NormAwarePoolingLayer
 from train.layers.angular_margin_layer import AngularMarginLayer
+from train.utils import GradientAccumulatorModel
 
 import tensorflow as tf
 
 
-class AngularMarginModel(tf.keras.Model):
+class AngularMarginModel(GradientAccumulatorModel):
 
     def __init__(self,
                  backbone,
@@ -12,8 +13,9 @@ class AngularMarginModel(tf.keras.Model):
                  embedding_dim=512,
                  margin=0.5,
                  scale=30,
+                 num_grad_accum=1,
                  **kargs):
-        super(AngularMarginModel, self).__init__(**kargs)
+        super(AngularMarginModel, self).__init__(num_accum=num_grad_accum, **kargs)
         self.backbone = backbone
         self.n_classes = n_classes
         self.feature_pooling = NormAwarePoolingLayer()
@@ -52,7 +54,7 @@ class AngularMarginModel(tf.keras.Model):
             total_loss = tf.keras.losses.categorical_crossentropy(y_true, probs)
             total_loss = tf.math.reduce_mean(total_loss)
         grads = tape.gradient(total_loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+        self.accumulate_grads_and_apply(grads)
         self.loss_tracker.update_state(total_loss)
         self.acc_tracker.update_state(y_true, probs)
         return {'loss': self.loss_tracker.result(),

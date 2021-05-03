@@ -48,7 +48,7 @@ python generate_tfrecord/main.py --root_path [path] --json_file [path] --output 
 ```
 
 ## Common Settings
-Execute the command `export PYTHONPATH=$(pwd)` on linux and `env:$PYTHONPATH=$pwd` on windows 10 powershell.  
+Execute the command `export PYTHONPATH=$(pwd)` on linux and `$env:$PYTHONPATH=$pwd` on windows 10 powershell.  
 
 ## Recommendation Steps for Training.
 1. Train a model with 'loss'=`SoftmaxCenter` on VGGFACE2 dataset.  
@@ -59,23 +59,24 @@ The training command is `python train/main.py`.
 ## Results
 |                       |        ResNet50        |
 |-----------------------|------------------------|
-| Recall @ 1, African   | 48%                    |
-| Recall @ 1, Asian     | 81%                    |
-| Recall @ 1, Caucacian | 65%                    |
-| Recall @ 1, Indian    | 66%                    |
+| Recall @ 1, African   | 51%                    |
+| Recall @ 1, Asian     | 83%                    |
+| Recall @ 1, Caucacian | 69%                    |
+| Recall @ 1, Indian    | 69%                    |
 | Recall @ 1, VGGFace2  | 89%                    |
-| Epoch                 | 17                     |
-| Batch Size            | 256                    |
+| Epoch                 | 50                     |
+| Batch Size            | 1024                   |
 | Embedding Size        | 512                    |
-| Pre-Embedding Method  | GNAP                   |
+| Feature Pooling       | *GNAP                  |
 | Loss Type             | AngularMargin(arcface) |
-| Scale                 | 64                     |
+| Scale                 | 60                     |
 | LR                    | SGD@1e-1               |
 | # of Identity         | 93979                  |
 
 **Trillion Pairs Dataset is used for training.*  
 **RFW and VGGFACE2 are used for testing*  
 **All models are pretrained on VGGFACE2 train-set*  
+**Global Norm-Aware Pooling (GNAP) is used for pooling last spatial features of convolution layer.*  
 
 ## TODO LIST
 
