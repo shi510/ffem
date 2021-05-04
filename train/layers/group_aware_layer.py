@@ -13,17 +13,32 @@ All the code below is referenced from :
 https://github.com/SeungyounShin/GroupFace
 """
 
+class FC(tf.keras.layers.Layer):
+    def __init__(self, out_channels):
+        self.out_channels = out_channels
+        self.fc= tf.keras.layers.Dense(out_channels)
+        self.bn = tf.keras.layers.BatchNormalization()
+        self.prelu = tf.keras.layers.PReLU()
+
+    def call(self, x):
+        x = self.fc(x)
+        x = self.bn(x)
+        x = self.prelu(x)
+        return x
+
+    def get_config(self):
+        return {'out_channels': self.out_channels}
+
+
 class GroupDecisionLayer(tf.keras.layers.Layer):
     def __init__(self, n_groups, inter_dim=256):
         super(GroupDecisionLayer, self).__init__()
         self.n_groups = n_groups
         self.inter_dim = inter_dim
-        self.batchnorm = tf.keras.layers.BatchNormalization()
-        self.fc1= tf.keras.layers.Dense(inter_dim)
-        self.fc2= tf.keras.layers.Dense(n_groups)
+        self.fc1 = FC(inter_dim)
+        self.fc2 = FC(n_groups)
 
     def call(self, embedding):
-        embedding = self.batchnorm(embedding)
         intermidiates = self.fc1(embedding)
         group_probs = self.fc2(intermidiates)
         return intermidiates, tf.nn.softmax(group_probs)
@@ -35,7 +50,7 @@ class GroupDecisionLayer(tf.keras.layers.Layer):
 
 class GroupLabelGenerator(tf.Module):
     """
-    This object includes just math function call, not has parameters.
+    This object includes just math functions, not has parameters.
     """
 
     def __init__(self, n_groups):
@@ -59,9 +74,7 @@ class GroupAwareLayer(tf.keras.layers.Layer):
         self.instance_dim = instance_dim
         self.inter_dim = inter_dim
         self.feature_pooling = NormAwarePoolingLayer()
-        self.fc1 = tf.keras.layers.Dense(instance_dim,
-            kernel_regularizer=tf.keras.regularizers.l2(5e-4))
-        self.batchnorm_final = tf.keras.layers.BatchNormalization()
+        self.fc1 = FC(instance_dim)
         self.group_decision = GroupDecisionLayer(n_groups, inter_dim)
         self.group_fc_list = [
             tf.keras.layers.Dense(instance_dim) for _ in range(self.n_groups)]
@@ -69,7 +82,6 @@ class GroupAwareLayer(tf.keras.layers.Layer):
     def call(self, embedding):
         shared_feature = self.feature_pooling(embedding)
         instance_feature = self.fc1(shared_feature)
-        instance_feature = self.batchnorm_final(instance_feature)
         intermidiates, group_prob = self.group_decision(instance_feature)
 
         group_embedding = [fc(shared_feature) for fc in self.group_fc_list]
