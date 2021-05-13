@@ -57,23 +57,23 @@ The training command is `python train/main.py`.
 
 
 ## Results
-|                       |        ResNet50        |
-|-----------------------|------------------------|
-| Recall @ 1, African   | 51%                    |
-| Recall @ 1, Asian     | 83%                    |
-| Recall @ 1, Caucacian | 69%                    |
-| Recall @ 1, Indian    | 69%                    |
-| Recall @ 1, VGGFace2  | 89%                    |
-| Epoch                 | 50                     |
-| Batch Size            | 1024                   |
-| Embedding Size        | 512                    |
-| Feature Pooling       | *GNAP                  |
-| Loss Type             | AngularMargin(arcface) |
-| Scale                 | 60                     |
-| LR                    | SGD@1e-1               |
-| # of Identity         | 93979                  |
+|                       |        ResNet50        |        ResNet50           |
+|-----------------------|------------------------|---------------------------|
+| Recall @ 1, African   | 51%                    | 55%                       |
+| Recall @ 1, Asian     | 83%                    | 84%                       |
+| Recall @ 1, Caucacian | 69%                    | 74%                       |
+| Recall @ 1, Indian    | 69%                    | 72%                       |
+| Recall @ 1, VGGFace2  | 89%                    | 95%                       |
+| Epoch                 | 50                     | 70                        |
+| Batch Size            | 2048                   | 2048                      |
+| Embedding Size        | 512                    | 512                       |
+| Feature Pooling       | *GNAP                  | *GNAP                     |
+| Loss Type             | AngularMargin(arcface) | AngularMargin(arcface)    |
+| Scale                 | 60                     | 60                        |
+| LR                    | SGD@1e-1               | SGD@1e-1                  |
+| # of Identity         | 93979                  | 100979                    |
+| Dataset               | Trillion Pairs         | Trillion Pairs + VGGFACE2 |
 
-**Trillion Pairs Dataset is used for training.*  
 **RFW and VGGFACE2 are used for testing*  
 **All models are pretrained on VGGFACE2 train-set*  
 **Global Norm-Aware Pooling (GNAP) is used for pooling last spatial features of convolution layer.*  
