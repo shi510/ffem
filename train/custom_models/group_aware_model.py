@@ -70,7 +70,7 @@ class GroupAwareModel(GradientAccumulatorModel):
         return [self.loss_tracker, self.cls_acc_tracker, self.group_acc_tracker]
 
     def get_inference_model(self):
-        y = x = self.backbone.inputs
-        y = self.backbone(y)
+        x = self.backbone.inputs[0]
+        y = self.backbone.outputs[0]
         y, interm, group_probs = self.group_aware(y)
         return tf.keras.Model(x, y, name='{}_embedding'.format(self.name))

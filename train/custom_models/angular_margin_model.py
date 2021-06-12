@@ -65,8 +65,8 @@ class AngularMarginModel(GradientAccumulatorModel):
         return [self.loss_tracker, self.acc_tracker]
 
     def get_inference_model(self):
-        y = x = self.backbone.inputs
-        y = self.backbone(y)
+        x = self.backbone.inputs[0]
+        y = self.backbone.outputs[0]
         y = self.feature_pooling(y)
         y = self.fc1(y)
         y = self.batchnorm_final(y)

@@ -15,6 +15,7 @@ https://github.com/SeungyounShin/GroupFace
 
 class FC(tf.keras.layers.Layer):
     def __init__(self, out_channels):
+        super(FC, self).__init__()
         self.out_channels = out_channels
         self.fc= tf.keras.layers.Dense(out_channels)
         self.bn = tf.keras.layers.BatchNormalization()
